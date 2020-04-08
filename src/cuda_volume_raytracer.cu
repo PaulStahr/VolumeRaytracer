@@ -267,7 +267,7 @@ inline __host__ __device__ cuda_tuple<float, dimtuple> interpolatef(
     return values[0];
 }
 
-template <typename P, typename T, typename B>
+/*template <typename P, typename T, typename B>
 __global__ void trace_ray(
     cuda_tuple<diff_t,2> *diff_interleaved,
     T translucency,
@@ -370,7 +370,7 @@ __global__ void trace_ray(
         raydata->_position = pos;
         raydata->_remaining_brightness = brightness;
     }
-}
+}*/
 
 class DummyObject
 {
@@ -415,6 +415,57 @@ class DummyArray{
     inline __host__ __device__ operator bool() const{return false;}
 };
 
+template <typename T, uint8_t dim>
+void __host__ __device__ print(cuda_tuple<T, dim> const & tuple);
+
+
+template <>
+void __host__ __device__ print(cuda_tuple<float, 1> const & tuple)
+{
+    printf("(%f)",tuple.x);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<float, 2> const & tuple)
+{
+    printf("(%f %f)",tuple.x, tuple.y);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<float, 3> const & tuple)
+{
+    printf("(%f %f %f)",tuple.x, tuple.y, tuple.z);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<float, 4> const & tuple)
+{
+    printf("(%f %f %f %f)",tuple.x, tuple.y, tuple.z, tuple.w);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<int, 1> const & tuple)
+{
+    printf("(%d)",tuple.x);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<int, 2> const & tuple)
+{
+    printf("(%d %d)",tuple.x, tuple.y);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<int, 3> const & tuple)
+{
+    printf("(%d %d %d)",tuple.x, tuple.y, tuple.z);
+}
+
+template <>
+void __host__ __device__ print(cuda_tuple<int, 4> const & tuple)
+{
+    printf("(%d %d %d %d)",tuple.x, tuple.y, tuple.z, tuple.w);
+}
 
 template <typename P, typename T, typename B, typename DiffType, typename DirType, uint8_t dim>
 inline __host__ __device__ void trace_ray_function(
@@ -455,6 +506,10 @@ inline __host__ __device__ void trace_ray_function(
         interpolation *= scale;
         direction += interpolation;
         float ilen = 0x40000000p0f / dot(direction, direction);
+        /*print(direction);
+        printf("+");
+        print(interpolation);
+        printf("\n");*/
         pos += __float2int_rn2(direction * scale * ilen);
         path[iterations] = pos;
     }

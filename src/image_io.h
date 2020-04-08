@@ -18,5 +18,7 @@ image_t load_jpeg(char* FileName, bool Fast = true);
 void write_jpeg(const char* filename, image_t const & img);
 
 image_t read_png(const char*filename);
+
+bool write_png(const char* filename, image_t const & img);
 }
 #endif

@@ -106,6 +106,62 @@ void write_jpeg(const char* filename, image_t const & img)
   /* And we're done! */
 }
 
+bool write_png(const char* filename, image_t const & img)
+{
+    FILE *fp = fopen(filename, "wb");
+    if(!fp) return false;
+
+    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png) return false;
+
+    png_infop info = png_create_info_struct(png);
+    if (!info) return false;
+
+    if (setjmp(png_jmpbuf(png))) return false;
+
+    png_init_io(png, fp);
+    
+    size_t color_type;
+    switch (img._channels)
+    {
+        case 1: color_type = PNG_COLOR_TYPE_GRAY;break;
+        case 3: color_type = PNG_COLOR_TYPE_RGB;break;
+        case 4: color_type = PNG_COLOR_TYPE_RGBA;break;
+        default: throw std::runtime_error("Channel number not supported " + std::to_string(img._channels));
+    }
+    // Output is 8bit depth, RGBA format.
+    png_set_IHDR(
+        png,
+        info,
+        img._width, img._width,
+        8,
+        color_type,
+        PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_DEFAULT,
+        PNG_FILTER_TYPE_DEFAULT
+    );
+    png_write_info(png, info);
+
+    // To remove the alpha channel for PNG_COLOR_TYPE_RGB format,
+    // Use png_set_filler().
+    //png_set_filler(png, 0, PNG_FILLER_AFTER);
+
+    png_bytep * row_pointers = new png_bytep[img._height];
+    for(size_t y = 0; y < img._height; y++) {
+        row_pointers[y] = const_cast<uint8_t*>(img._data.data() + y * img._width * img._channels);
+    }
+
+    png_write_image(png, row_pointers);
+    png_write_end(png, NULL);
+
+    delete []row_pointers;
+
+    fclose(fp);
+
+    png_destroy_write_struct(&png, &info);
+    return true;
+}
+
 image_t read_png(const char *filename) {
     png_byte color_type;
     png_byte bit_depth;

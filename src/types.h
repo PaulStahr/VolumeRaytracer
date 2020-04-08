@@ -12,7 +12,7 @@ typedef uint32_t translucency_t;
 
 struct Options
 {
-    size_t _loglevel;
+    int _loglevel;
     size_t _target;
     bool _write_instance;
     Options(size_t loglevel_, size_t target_, bool write_instance_) : _loglevel(loglevel_), _target(target_), _write_instance(write_instance_){}

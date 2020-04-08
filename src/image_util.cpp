@@ -24,7 +24,7 @@ SOFTWARE.
 #include <algorithm>
 #include <cassert>
 #include <functional>
-
+#include <experimental/filesystem>
 #include "cuda_volume_raytracer.h"
 #include "image_util.h"
 #include "types.h"
@@ -105,7 +105,7 @@ std::istream & read_value(std::istream & in, RayTraceSceneInstance<IorType> & va
 }
 
 template std::istream & read_value(std::istream & in, RayTraceSceneInstance<ior_t> & value);
-
+/*
 template <typename DirType>
 std::ostream & write_value(std::ostream & out, RayTraceRayInstanceRef<DirType> const & value)
 {
@@ -124,7 +124,7 @@ template <typename DirType>
 std::ostream & write_value(std::ostream & out, RayTraceRayInstance<DirType> const & value)
 {
     return write_value(out, RayTraceRayInstanceRef<DirType>(const_cast<RayTraceRayInstance<DirType> &>(value)));
-}
+}*/
 
 template <typename DirType>
 std::istream & read_value(std::istream & in, RayTraceRayInstance<DirType> & value)
@@ -284,19 +284,61 @@ void crop_matrix(
     }
 }
 
+namespace fs = std::experimental::filesystem;
+
 template <typename T>
 void export_image_stack(std::string const & prefix, std::vector<T> const & image, std::vector<size_t> const & bounds)
 {
-    IMG_IO::image_t img(bounds[1], bounds[2], 3);
-    for (size_t i = 0; i < bounds[0]; ++i)
+    std::cout << "export " << prefix << std::endl;
+    if (bounds.size() == 3)
     {
-        for (size_t j = 0; j < bounds[1] * bounds[2]; ++j)
+        IMG_IO::image_t img(bounds[1], bounds[2], 3);
+        for (size_t i = 0; i < bounds[0]; ++i)
         {
-            std::fill(img._data.begin() + j * 3, img._data.begin() + j * 3 + 3, (image[i * bounds[1] * bounds[2] + j]) / 10 + 128);
+            for (size_t j = 0; j < bounds[1] * bounds[2]; ++j)
+            {
+                std::fill(img._data.begin() + j * 3, img._data.begin() + j * 3 + 3, (image[i * bounds[1] * bounds[2] + j]) / 10 + 128);
+            }
+            //std::transform(image.begin() + i * bounds[1] * bounds[2], image.begin() + (i+1) * bounds[1] * bounds[2], img._data.begin(), UTIL::divide_by<T>(0x100));
+            std::string tmp = prefix + std::to_string(i) + ".png";
+            std::string dir = tmp.substr(0, tmp.find_last_of("/\\"));
+            if (!fs::is_directory(dir) || !fs::exists(dir)) { // Check if src folder exists
+                fs::create_directories(dir); // create src folder
+            }
+            write_png(tmp.c_str(), img);
+        }
+    }
+    else if (bounds.size() == 2)
+    {
+        IMG_IO::image_t img(bounds[0], bounds[1], 3);
+         for (size_t j = 0; j < bounds[0] * bounds[1]; ++j)
+        {
+            std::fill(img._data.begin() + j * 3, img._data.begin() + j * 3 + 3, (image[j]) / 10 + 128);
         }
         //std::transform(image.begin() + i * bounds[1] * bounds[2], image.begin() + (i+1) * bounds[1] * bounds[2], img._data.begin(), UTIL::divide_by<T>(0x100));
-        std::string tmp = prefix + std::to_string(i) + ".jpg";
-        write_jpeg(tmp.c_str(), img);
+        std::string tmp = prefix + ".png";
+        
+        if (!fs::is_directory(tmp) || !fs::exists(tmp)) { // Check if src folder exists
+            fs::create_directories(tmp); // create src folder
+        }
+        
+        write_png(tmp.c_str(), img);
+    }
+    else if (bounds.size() == 1)
+    {
+        IMG_IO::image_t img(bounds[0], 1, 3);
+         for (size_t j = 0; j < bounds[0]; ++j)
+        {
+            std::fill(img._data.begin() + j * 3, img._data.begin() + j * 3 + 3, (image[j]) / 10 + 128);
+        }
+        //std::transform(image.begin() + i * bounds[1] * bounds[2], image.begin() + (i+1) * bounds[1] * bounds[2], img._data.begin(), UTIL::divide_by<T>(0x100));
+        std::string tmp = prefix + ".png";
+        
+        if (!fs::is_directory(tmp) || !fs::exists(tmp)) { // Check if src folder exists
+            fs::create_directories(tmp); // create src folder
+        }
+        
+        write_png(tmp.c_str(), img);
     }
 }
 
@@ -371,7 +413,6 @@ void calculate_differations(
         }
     }
     output_sizes = conv._output_sizes;
-    std::cout << output_sizes.size() << std::endl;
     if (eptr) {
         std::rethrow_exception(eptr);
     }
@@ -390,40 +431,47 @@ void calculate_differations(
     std::vector<size_t> stencil_bounds(2,3);
     auto transform = UTIL::transform_iter(stencilx.begin(), UTIL::abs);
     W stamp_weight = std::accumulate(transform, transform + stencilx.size(), W(0), std::plus<W>()) * div;
-    
     convolution<T, W, V> conv(ior, bounds, stencil_bounds);
+    std::exception_ptr eptr;
     #pragma omp parallel for num_threads(2)
     for (size_t i = 0; i < 2; ++i){
-        std::vector<size_t> local_output_sizes;
-        switch(i)
-        {
-            case 0:{
-                conv(stencilx, stamp_weight, diffx);
-                break;
+        try{
+            std::vector<size_t> local_output_sizes;
+            switch(i)
+            {
+                case 0:{
+                    conv(stencilx, stamp_weight, diffx);
+                    break;
+                }
+                case 1:{
+                    std::vector<W> stencily;
+                    swap_dimensions(stencilx, stencily, stencil_bounds,0,1);
+                    conv(stencily, stamp_weight, diffy);
+                    break;
+                }
             }
-            case 1:{
-                std::vector<W> stencily;
-                swap_dimensions(stencilx, stencily, stencil_bounds,0,1);
-                conv(stencily, stamp_weight, diffy);
-                break;
-            }
+        }catch(...) {
+            eptr = std::current_exception(); // capture
         }
     }
     output_sizes = conv._output_sizes;
-    std::cout << output_sizes.size() << std::endl;
+    if (eptr) {
+        std::rethrow_exception(eptr);
+    }
 }
 
 
 template <typename IorType, typename IorLogType, typename DiffType>
-RaytraceScene<IorType, IorLogType, DiffType>::RaytraceScene(RayTraceSceneInstanceRef<IorType> const & ref): RaytraceScene(ref._bound_vec, ref._ior, ref._translucency){}
+RaytraceScene<IorType, IorLogType, DiffType>::RaytraceScene(RayTraceSceneInstanceRef<IorType> const & ref, Options const & opt): RaytraceScene(ref._bound_vec, ref._ior, ref._translucency, opt){}
 
-template RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(RayTraceSceneInstanceRef<ior_t> const & ref);
+template RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(RayTraceSceneInstanceRef<ior_t> const & ref, Options const & opt);
 
 template <>
 RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(
         std::vector<size_t> const & bound_vec,
         std::vector<ior_t> const & ior,
-        std::vector<translucency_t> const & translucency): _bound_vec(bound_vec), _ior(ior), _translucency(translucency)
+        std::vector<translucency_t> const & translucency,
+        Options const & opt): _bound_vec(bound_vec), _ior(ior), _translucency(translucency)
 {
     uint8_t dim = bound_vec.size();
     if (dim == 0)
@@ -490,13 +538,26 @@ RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(
         }
     }
     _calculation_object = new TraceRaysCu<diff_t>(_diff_bound_vec, _diff, _translucency_cropped);
+    if (opt._loglevel < -1)
+    {
+        auto tr_minmax = std::minmax_element(_translucency_cropped.begin(), _translucency_cropped.end());
+        auto ior_minmax = std::minmax_element(_ior.begin(), _ior.end());
+        auto iorl_minmax = std::minmax_element(_ior_log.begin(), _ior_log.end());
+        for (size_t i = 0; i < _diff.size(); ++i)
+        {
+            auto diff_minmax = std::minmax_element(_diff[i].begin(), _diff[i].end());
+            std::cout << "diff" << i << " (" << *diff_minmax.first << ' ' << *diff_minmax.second << ") ";
+        }
+        std::cout << "tr ("<< *tr_minmax.first << ' ' << *tr_minmax.second << ") ior (" << *ior_minmax.first << ' ' << *ior_minmax.second << ") iorl (" << *iorl_minmax.first << ' ' << *iorl_minmax.second << ") outputsize: " << _calculation_object->_output_sizes.size() << std::endl;
+    }
 }
 
 template <>
 RaytraceScene<float, float, float>::RaytraceScene(
         std::vector<size_t> const & bound_vec,
         std::vector<float> const & ior,
-        std::vector<translucency_t> const & translucency): _bound_vec(bound_vec), _ior(ior), _translucency(translucency), _calculation_object(nullptr)
+        std::vector<translucency_t> const & translucency,
+        Options const & opt): _bound_vec(bound_vec), _ior(ior), _translucency(translucency), _calculation_object(nullptr)
 {
     size_t dim = bound_vec.size();
     if (dim == 0)
@@ -557,8 +618,18 @@ RaytraceScene<float, float, float>::RaytraceScene(
         }
     }
     _calculation_object = new TraceRaysCu<float>(_diff_bound_vec, _diff, _translucency_cropped);
-    std::cout << _calculation_object->_output_sizes.size() << std::endl;
-
+    if (opt._loglevel < -1)
+    {
+        auto tr_minmax = std::minmax_element(_translucency_cropped.begin(), _translucency_cropped.end());
+        auto ior_minmax = std::minmax_element(_ior.begin(), _ior.end());
+        auto iorl_minmax = std::minmax_element(_ior_log.begin(), _ior_log.end());
+        for (size_t i = 0; i < _diff.size(); ++i)
+        {
+            auto diff_minmax = std::minmax_element(_diff[i].begin(), _diff[i].end());
+            std::cout << "diff" << i << " (" << *diff_minmax.first << ' ' << *diff_minmax.second << ") ";
+        }
+        std::cout << "tr ("<< *tr_minmax.first << ' ' << *tr_minmax.second << ") ior (" << *ior_minmax.first << ' ' << *ior_minmax.second << ") iorl (" << *iorl_minmax.first << ' ' << *iorl_minmax.second << ") outputsize: " << _calculation_object->_output_sizes.size() << std::endl;
+    }
 }
 
 template <typename IorType, typename IorLogType, typename DiffType>
@@ -614,7 +685,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
                     {    
                         if (std::is_same<IorType, float>::value)
                         {
-                            *iter *= interpolated;
+                            *iter *= interpolated / 0x100;
                         }
                         else
                         {
@@ -662,7 +733,17 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
     export_image_stack("differentiations/translucency_orig", _translucency, _bound_vec);
     //export_image_stack("differentiations/translucency", _translucency_cropped, _output_size);
 #endif
+    if (opt._loglevel < -2)
+    {
+        print_elements(std::cout << "start_position: ", start_position.begin(), start_position.end(), ' ') << std::endl;
+        print_elements(std::cout << "start_direction:", start_direction.begin(), start_direction.end(), ' ') << std::endl;
+    }
      _calculation_object->trace_rays_cu(start_position, start_direction, end_position, end_direction, remaining_light, path, scale, minimum_brightness, iterations, trace_path, opt);
+    if (opt._loglevel < -2)
+    {
+        print_elements(std::cout << "end_position: ", end_position.begin(), end_position.end(), ' ') << std::endl;
+        print_elements(std::cout << "end_direction:", end_direction.begin(), end_direction.end(), ' ') << std::endl;
+    }
     std::transform(path.begin(), path.end(), path.begin(), UTIL::plus<pos_t>(0x10000));
     std::transform(end_position.begin(), end_position.end(), end_position.begin(), UTIL::plus<pos_t>(0x10000));
 }
@@ -686,7 +767,7 @@ void trace_rays(
     bool normalize_length,
     Options const & opt)
 {
-    RaytraceScene<IorType, IorLogType, DiffType>(bound_vec, ior, translucency).trace_rays(start_position, start_direction, end_position, end_direction, remaining_light, path, scale, minimum_brightness, iterations, trace_path, normalize_length, opt);
+    RaytraceScene<IorType, IorLogType, DiffType>(bound_vec, ior, translucency, opt).trace_rays(start_position, start_direction, end_position, end_direction, remaining_light, path, scale, minimum_brightness, iterations, trace_path, normalize_length, opt);
 }
 
 template <typename IorType, typename IorLogType, typename DiffType>

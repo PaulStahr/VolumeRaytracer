@@ -64,8 +64,8 @@ extern "C" {
  * Method:    new_instance
  * Signature: (Ljava/nio/IntBuffer;Ljava/nio/IntBuffer;Ljava/nio/IntBuffer;)J
  */
-JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2
-  (JNIEnv *env, jclass, jobject bounds, jobject ior, jobject translucency){
+JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2J
+  (JNIEnv *env, jclass, jobject bounds, jobject ior, jobject translucency, jlong opt_pt){
     try
     {
         RayTraceSceneInstance<ior_t> inst;
@@ -73,12 +73,15 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Lj
         jni_to_vec(*env, ior, inst._ior, UTIL::identity_function, (jint)0);
         jni_to_vec(*env, translucency, inst._translucency, UTIL::identity_function, (jint)0);
                
-        std::ofstream debug_out("debug_scene_instance");
-        SERIALIZE::write_value(debug_out, inst);
-        debug_out.close();
-
+        Options const & opt = *reinterpret_cast<Options*>(opt_pt);
+        if (opt._write_instance)
+        {
+            std::ofstream debug_out("debug_scene_instance");
+            SERIALIZE::write_value(debug_out, inst);
+            debug_out.close();
+        }
         std::cout << "bound_size:" << inst._bound_vec.size() << std::endl;
-        RaytraceScene<ior_t, iorlog_t, diff_t> *scene = new RaytraceScene<ior_t, iorlog_t, diff_t>(inst);
+        RaytraceScene<ior_t, iorlog_t, diff_t> *scene = new RaytraceScene<ior_t, iorlog_t, diff_t>(inst, opt);
         return reinterpret_cast<jlong>(scene);
     }catch(std::exception const & e)
     {
@@ -87,26 +90,37 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Lj
     }
 }
 
+JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1options
+  (JNIEnv *, jclass)
+  {
+      Options *opt = new Options();
+      return reinterpret_cast<jlong>(opt);
+  }
+
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    new_instance
  * Signature: (Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;)J
  */
-JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2
-  (JNIEnv *env, jclass, jobject bounds, jobject ior, jobject translucency){
+JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2J
+  (JNIEnv *env, jclass, jobject bounds, jobject ior, jobject translucency, jlong opt_pt){
     try
     {
         RayTraceSceneInstance<float> inst;
         jni_to_vec(*env, bounds, inst._bound_vec, UTIL::identity_function, (jint)0);
         jni_to_vec(*env, ior, inst._ior, UTIL::identity_function, (jfloat)0);
         jni_to_vec(*env, translucency, inst._translucency, UTIL::identity_function, (jint)0);
-               
-        std::ofstream debug_out("debug_scene_instance");
-        SERIALIZE::write_value(debug_out, inst);
-        debug_out.close();
+        
+        Options const & opt = *reinterpret_cast<Options*>(opt_pt);
+        if (opt._write_instance)
+        {
+            std::ofstream debug_out("debug_scene_instance");
+            SERIALIZE::write_value(debug_out, inst);
+            debug_out.close();
+        }
 
         std::cout << "bound_size:" << inst._bound_vec.size() << std::endl;
-        RaytraceScene<float, float, float> *scene = new RaytraceScene<float, float, float>(inst);
+        RaytraceScene<float, float, float> *scene = new RaytraceScene<float, float, float>(inst, opt);
         return reinterpret_cast<jlong>(scene);
     }catch(std::exception const & e)
     {
@@ -121,7 +135,7 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Lj
  * Method:    trace_rays
  * Signature: (JLjava/nio/IntBuffer;Ljava/nio/ShortBuffer;Ljava/nio/FloatBuffer;FIZ)V
  */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_FloatBuffer_2FIZ(
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_FloatBuffer_2FIZJ(
     JNIEnv *env,
     jclass ,
     jlong pointer,
@@ -130,7 +144,8 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
     jobject scale,
     jfloat minimum_brightness,
     jint iterations,
-    jboolean trace_paths)
+    jboolean trace_paths,
+    jlong opt_pt)
 {
     try
     {
@@ -149,7 +164,7 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
         ray_instance._trace_path = trace_paths;
         ray_instance._normalize_length = true;
         
-        Options opt;
+        Options &opt = *reinterpret_cast<Options *>(opt_pt);
         if (opt._write_instance)
         {
             std::ofstream debug_out("debug_ray_instance");
@@ -197,7 +212,7 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
  * Method:    trace_rays
  * Signature: (JLjava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;FIZ)V
  */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2FIZ(
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2FIZJ(
     JNIEnv *env,
     jclass ,
     jlong pointer,
@@ -206,7 +221,8 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
     jobject scale,
     jfloat minimum_brightness,
     jint iterations,
-    jboolean trace_paths)
+    jboolean trace_paths,
+    jlong opt_pt)
 {
     try
     {
@@ -226,7 +242,7 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
         ray_instance._trace_path = trace_paths;
         ray_instance._normalize_length = true;
         
-        Options opt;
+        Options &opt = *reinterpret_cast<Options *>(opt_pt);
         if (opt._write_instance)
         {
             std::ofstream debug_out("debug_ray_instance");
@@ -280,14 +296,92 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
 JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_delete_1instance (JNIEnv *env, jclass, jlong pointer)
 {
     std::cout << "delete" <<std::endl;
+    RaytraceSceneBase *sceneb = reinterpret_cast<RaytraceSceneBase*>(pointer);
     try{
-        delete reinterpret_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(pointer);
+        delete dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
+        delete dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
     }catch(std::exception const & e)
     {
         env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());
     }
 }
 
+/*
+ * Class:     data_raytrace_OpticalVolumeObject
+ * Method:    delete_options
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_delete_1options
+  (JNIEnv *, jclass, jlong opt_pt)
+  {
+      delete reinterpret_cast<Options*>(opt_pt);
+  }
+  
+/*
+ * Class:     data_raytrace_OpticalVolumeObject
+ * Method:    get_option_valuei
+ * Signature: (JJ)I
+ */
+JNIEXPORT jint JNICALL Java_data_raytrace_OpticalVolumeObject_get_1option_1valuei
+  (JNIEnv *, jclass, jlong pt, jlong key)
+  {
+      Options &opt = *reinterpret_cast<Options*>(pt);
+      switch(key)
+      {
+          case 0:return opt._loglevel;
+          default: throw std::runtime_error("Illegal Argument " + std::to_string(key));
+      }
+  }
+
+/*
+ * Class:     data_raytrace_OpticalVolumeObject
+ * Method:    set_option_valuei
+ * Signature: (JJI)V
+ */
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_set_1option_1valuei
+  (JNIEnv *, jclass, jlong pt, jlong key, jint value)
+  {
+      Options &opt = *reinterpret_cast<Options*>(pt);
+      switch(key)
+      {
+          case 0: opt._loglevel = value;break;
+          default: throw std::runtime_error("Illegal Argument " + std::to_string(key));
+      }
+  }
+
+  /*
+ * Class:     data_raytrace_OpticalVolumeObject
+ * Method:    get_option_valueb
+ * Signature: (JJ)Z
+ */
+JNIEXPORT jboolean JNICALL Java_data_raytrace_OpticalVolumeObject_get_1option_1valueb
+  (JNIEnv *, jclass, jlong pt, jlong key)
+  {
+      Options &opt = *reinterpret_cast<Options*>(pt);
+      switch(key)
+      {
+          case 1:return opt._write_instance;
+          default: throw std::runtime_error("Illegal Argument " + std::to_string(key));
+      }
+  }
+
+/*
+ * Class:     data_raytrace_OpticalVolumeObject
+ * Method:    set_option_valueb
+ * Signature: (JJZ)V
+ */
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_set_1option_1valueb
+  (JNIEnv *, jclass, jlong pt, jlong key, jboolean value)
+  {
+      Options &opt = *reinterpret_cast<Options*>(pt);
+      switch(key)
+      {
+          case 1: opt._write_instance = value;break;
+          default: throw std::runtime_error("Illegal Argument " + std::to_string(key));
+      }
+  }
+
+  
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    trace_rays
@@ -305,7 +399,8 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_rays(
     jobject scale,
     jfloat minimum_brightness,
     jint iterations,
-    jboolean trace_paths)
+    jboolean trace_paths,
+    jlong opt_pt)
 {
     try{
         RaytraceInstance<ior_t, dir_t> inst;
@@ -324,7 +419,7 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_rays(
         SERIALIZE::write_value(debug_out, inst);
         debug_out.close();
 
-        Options opt;
+        Options &opt = *reinterpret_cast<Options*>(opt_pt);
         std::vector<pos_t> end_position;
         std::vector<dir_t> end_direction;
         std::vector<brightness_t> remaining_light;

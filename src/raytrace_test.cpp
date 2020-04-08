@@ -171,14 +171,16 @@ int main(int argc, char* argv[])
         }
         std::cout << ray_inst._scale.size() << std::endl;
         std::cout << ray_inst._scale[0] << std::endl;
-        RaytraceScene<ior_t, iorlog_t, diff_t> scene(scene_inst);
+        Options opt;
+        opt._loglevel = -4;
+        RaytraceScene<ior_t, iorlog_t, diff_t> scene(scene_inst, opt);
         
         std::vector<pos_t> end_position;
         std::vector<dir_t> end_direction;
         std::vector<uint32_t> remaining_light;
         std::vector<pos_t> path;
         
-        scene.trace_rays(RayTraceRayInstanceRef<dir_t>(ray_inst), end_position, end_direction, remaining_light, path, Options());
+        scene.trace_rays(RayTraceRayInstanceRef<dir_t>(ray_inst), end_position, end_direction, remaining_light, path, opt);
         
         print_elements(std::cout << "begin ", ray_inst._start_position.begin(), ray_inst._start_position.end(), ' ') << std::endl;
         print_elements(std::cout << "end ", end_position.begin(), end_position.end(), ' ') << std::endl;

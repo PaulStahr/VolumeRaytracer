@@ -145,9 +145,12 @@ public:
     RaytraceScene(
         std::vector<size_t> const & bound_vec,
         std::vector<IorType> const & _ior,
-        std::vector<translucency_t> const & _translucency);
+        std::vector<translucency_t> const & _translucency,
+        Options const & opt);
     
-    RaytraceScene(RayTraceSceneInstanceRef<IorType> const & ref);
+    RaytraceScene(
+        RayTraceSceneInstanceRef<IorType> const & ref,
+        Options const & opt);
     
     void dummy(){}
     
@@ -273,11 +276,32 @@ std::ostream & write_value(std::ostream & out, RayTraceSceneInstance<IorType> co
 template <typename IorType>
 std::istream & read_value(std::istream & in, RayTraceSceneInstance<IorType> & value);
 
-template <typename DirType>
+/*template <typename DirType>
 std::ostream & write_value(std::ostream & out, RayTraceRayInstanceRef<DirType> const & value);
 
 template <typename DirType>
 std::ostream & write_value(std::ostream & out, RayTraceRayInstance<DirType> const & value);
+*/
+
+template <typename DirType>
+std::ostream & write_value(std::ostream & out, RayTraceRayInstanceRef<DirType> const & value)
+{
+    write_value(out, value._start_position);
+    write_value(out, value._start_direction);
+    write_value(out, value._scale);
+    write_value(out, value._minimum_brightness);
+    write_value(out, value._iterations);
+    write_value(out, value._trace_path);
+    write_value(out, value._normalize_length);
+    return out;
+}
+
+
+template <typename DirType>
+std::ostream & write_value(std::ostream & out, RayTraceRayInstance<DirType> const & value)
+{
+    return write_value(out, RayTraceRayInstanceRef<DirType>(const_cast<RayTraceRayInstance<DirType> &>(value)));
+}
 
 template <typename DirType>
 std::istream & read_value(std::istream & in, RayTraceRayInstance<DirType> & value);
