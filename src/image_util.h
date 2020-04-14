@@ -307,18 +307,22 @@ template <typename DirType>
 std::istream & read_value(std::istream & in, RayTraceRayInstance<DirType> & value);
 }
 
-template <typename PosIter>
-size_t get_index(std::vector<size_t> const & bounds, PosIter pos)
+template <typename BoundIter, typename PosIter>
+size_t get_index(BoundIter bound_begin, BoundIter bound_end, PosIter pos)
 {
-    if (bounds.empty())
+    if (bound_begin == bound_end)
     {
         return 0;
     }
     size_t index = *pos;
-    for (size_t i = 1; i < bounds.size();++i)
+    ++pos;
+    ++bound_begin;
+    while (bound_begin != bound_end)
     {
-        index *= bounds[i];
-        index += pos[i];
+        index *= *bound_begin;
+        index += *pos;
+        ++bound_begin;
+        ++pos;
     }
     return index;
 }
@@ -348,7 +352,7 @@ public:
     {
         _image_values.clear();
         _indices.clear();
-        _indices.emplace_back(get_index(_bound_vec, UTIL::transform_iter(positions, UTIL::shift_right(16))));
+        _indices.emplace_back(get_index(_bound_vec.begin(), _bound_vec.end(), UTIL::transform_iter(positions, UTIL::shift_right(16))));
         for (size_t d = _dim,offset=1; d --> 0;offset *= _bound_vec[d])
         {
             std::transform(_indices.begin(), _indices.end(), std::back_inserter(_indices), UTIL::plus(offset));
@@ -393,7 +397,7 @@ public:
     {
         _image_values.clear();
         _indices.clear();
-        _indices.emplace_back(get_index(_bound_vec, UTIL::transform_iter(positions, UTIL::shift_right(16))));
+        _indices.emplace_back(get_index(_bound_vec.begin(), _bound_vec.end(), UTIL::transform_iter(positions, UTIL::shift_right(16))));
         for (size_t d = _dim,offset=1; d --> 0;offset *= _bound_vec[d])
         {
             std::transform(_indices.begin(), _indices.end(), std::back_inserter(_indices), UTIL::plus(offset));
@@ -420,8 +424,6 @@ public:
 
 
 void get_position(size_t index, std::vector<size_t> const & bounds, std::vector<size_t> & pos);
-
-size_t get_index(std::vector<size_t> const & bounds, std::vector<size_t> const & pos);
 
 template <typename IorType, typename IorLogType, typename DiffType, typename DirType>
 void trace_rays(

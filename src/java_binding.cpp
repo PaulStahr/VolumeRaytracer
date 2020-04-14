@@ -298,8 +298,22 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_delete_1instance (
     std::cout << "delete" <<std::endl;
     RaytraceSceneBase *sceneb = reinterpret_cast<RaytraceSceneBase*>(pointer);
     try{
-        delete dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
-        delete dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
+        {
+            RaytraceScene<ior_t, iorlog_t, diff_t>* tmp = dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
+            if (tmp)
+            {
+                delete tmp;
+                return;
+            }
+        }
+        {
+            RaytraceScene<float, float, float>* tmp = dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
+            if (tmp)
+            {
+                delete tmp;
+                return;
+            }
+        }
     }catch(std::exception const & e)
     {
         env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());

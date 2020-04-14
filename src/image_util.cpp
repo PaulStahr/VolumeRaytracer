@@ -148,13 +148,16 @@ RayTraceSceneInstanceRef<IorType>::RayTraceSceneInstanceRef(RayTraceSceneInstanc
 
 template RayTraceSceneInstanceRef<ior_t>::RayTraceSceneInstanceRef(RayTraceSceneInstance<ior_t> & ref);
 
-void get_position(size_t index, std::vector<size_t> const & bounds, std::vector<size_t> & pos)
+template <typename BoundIter, typename PositionIterator>
+void get_position(size_t index, BoundIter bound_begin, BoundIter bound_end, PositionIterator position_out)
 {
-    pos.resize(bounds.size(), 0);
-    for (size_t i = bounds.size(); i --> 0;)
+    position_out += std::distance(bound_begin, bound_end);
+    while (bound_end != bound_begin)
     {
-        pos[i] = index % bounds[i];
-        index /= bounds[i];
+        --bound_end;
+        --position_out;
+        *position_out = index % (*bound_end);
+        index /= *bound_end;
     }
 }
 
@@ -167,17 +170,53 @@ void permutate_dimensions(
 {
     assert(permutation.size() == bounds.size());
     output.resize(input.size());
-    std::vector<size_t> input_position;
+    std::vector<size_t> input_position(bounds.size());
     std::vector<size_t> output_position;
     output_position.reserve(input.size());
     for (size_t i = 0; i < input.size(); ++i)
     {
-        get_position(i, bounds, input_position);
+        get_position(i, bounds.begin(), bounds.end(), input_position.begin());
         output_position.clear();
         UTIL::permutate_from_indice(permutation.begin(), permutation.end(), input_position.begin(), std::back_inserter(output_position));
-        size_t out_index = get_index(bounds, output_position.begin());
+        size_t out_index = get_index(bounds.begin(), bounds.end(), output_position.begin());
         output[out_index] = input[i];
     }
+}
+
+template <typename T, typename PermutationIter, size_t dim>
+void permutate_dimensions(
+    std::vector<T> const & input,
+    std::vector<T> & output,
+    std::array<size_t, dim> const & bounds,
+    PermutationIter permutation)
+{
+    //assert(permutation.size() == dim);
+    output.resize(input.size());
+    std::array<size_t, dim> input_position;
+    std::vector<size_t> output_position;
+    output_position.reserve(input.size());
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        get_position(i, bounds.begin(), bounds.end(), input_position.begin());
+        output_position.clear();
+        UTIL::permutate_from_indice(permutation.begin(), permutation.begin() + dim, input_position.begin(), std::back_inserter(output_position));
+        size_t out_index = get_index(bounds.begin(), bounds.end(), output_position.begin());
+        output[out_index] = input[i];
+    }
+}
+
+template <typename T, size_t dim>
+void swap_dimensions(
+    std::vector<T> const & input,
+    std::vector<T> & output,
+    std::array<size_t, dim> const & bounds,
+    size_t x, size_t y)
+{
+    std::array<size_t, dim> permutation;
+    UTIL::iota_n(permutation.begin(), dim, 0);
+    permutation[x] = y;
+    permutation[y] = x;
+    permutate_dimensions(input, output, bounds, permutation);
 }
    
 template <typename T>
@@ -218,28 +257,22 @@ struct convolution
         _stencil_size = accumulate(_stencil_sizes.begin(), _stencil_sizes.end(), 1lu, std::multiplies<size_t>());
     }
         
-    void operator ()(std::vector<V> const & stencil, V weight, std::vector<W> & output)
+    void operator ()(std::vector<size_t> const & stamp_offsets, std::vector<V> const & reduced_stencil, V weight, std::vector<W> & output)
     {
         output.clear();
         output.reserve(_output_size);
-        std::vector<size_t> position;
+        std::vector<size_t> position(_stencil_sizes.size());
         std::vector<size_t> stencil_offsets;
-        std::vector<V> reduced_stencil;
-        stencil_offsets.reserve(_stencil_size);
-        reduced_stencil.reserve(stencil.size());
-        for (size_t j = 0; j < stencil.size(); ++j)
+        stencil_offsets.reserve(stamp_offsets.size());
+        for (size_t j = 0; j < stamp_offsets.size(); ++j)
         {
-            if (stencil[j] != 0)
-            {
-                get_position(j, _stencil_sizes, position);
-                stencil_offsets.push_back(get_index(_input_sizes, position.begin()));
-                reduced_stencil.push_back(stencil[j]);
-            }
+            get_position(stamp_offsets[j], _stencil_sizes.begin(), _stencil_sizes.end(), position.begin());
+            stencil_offsets.push_back(get_index(_input_sizes.begin(), _input_sizes.end(), position.begin()));
         }
         for (size_t i = 0; i < _output_size; ++i)
         {
-            get_position(i, _output_sizes, position);
-            auto input_iter = _input.begin() + get_index(_input_sizes, position.begin());
+            get_position(i, _output_sizes.begin(), _output_sizes.end(), position.begin());
+            auto input_iter = _input.begin() + get_index(_input_sizes.begin(), _input_sizes.end(), position.begin());
             
             V sum = 0;
             for (size_t j = 0; j < reduced_stencil.size(); ++j)
@@ -274,12 +307,12 @@ void crop_matrix(
     output.clear();
     size_t output_size = std::accumulate(output_bounds.begin(), output_bounds.end(), 1lu, std::multiplies<size_t>());
     output.reserve(output_size);
-    std::vector<size_t> position;
+    std::vector<size_t> position(output_bounds.size());
     for (size_t i = 0; i < output_size; ++i)
     {
-        get_position(i, output_bounds, position);
+        get_position(i, output_bounds.begin(), output_bounds.end(), position.begin());
         std::transform(position.begin(), position.end(), lower_bound.begin(), position.begin(), std::plus<size_t>());
-        size_t input_index = get_index(bounds, position.begin());
+        size_t input_index = get_index(bounds.begin(), bounds.end(), position.begin());
         output.push_back(input[input_index]);
     }
 }
@@ -289,7 +322,7 @@ namespace fs = std::experimental::filesystem;
 template <typename T>
 void export_image_stack(std::string const & prefix, std::vector<T> const & image, std::vector<size_t> const & bounds)
 {
-    std::cout << "export " << prefix << std::endl;
+    print_elements(std::cout << "export " << prefix << " (", bounds.begin(), bounds.end(), ' ') << ')' << std::endl;
     if (bounds.size() == 3)
     {
         IMG_IO::image_t img(bounds[1], bounds[2], 3);
@@ -342,6 +375,63 @@ void export_image_stack(std::string const & prefix, std::vector<T> const & image
     }
 }
 
+template <typename T, size_t dim>
+struct stamp_t_struct
+{
+    std::array<size_t,dim> _bounds;
+    std::array<std::vector<size_t>, dim> _reduced_offsets;
+    std::array<std::vector<T>, dim> _reduced_values;
+    T _weight;
+    std::array<std::vector<T>, dim> _stamps;
+    stamp_t_struct(std::vector<T> st, std::array<size_t,dim> const & stencil_bounds) : _bounds(stencil_bounds)
+    {
+        _stamps[dim-1] = st;
+        for (size_t i = 0; i < dim - 1; ++i)
+        {
+            swap_dimensions(st, _stamps[i], stencil_bounds,i,dim-1);
+        }
+        auto transform = UTIL::transform_iter(st.begin(), UTIL::abs);
+        _weight = std::accumulate(transform, transform + st.size(), T(0), std::plus<T>());
+        
+        std::array<size_t, dim> position;
+        for (size_t i = 0; i < dim; ++i)
+        {
+            _reduced_offsets[i].reserve(_stamps.size());
+            _reduced_values[i].reserve(_stamps.size());
+            for (size_t j = 0; j < _stamps[i].size(); ++j)
+            {
+                if (_stamps[i][j] != 0)
+                {
+                    get_position(j, _bounds.begin(), _bounds.end(), position.begin());
+                    _reduced_offsets[i].push_back(get_index(_bounds.begin(), _bounds.end(), position.begin()));
+                    _reduced_values[i].push_back(_stamps[i][j]);
+                }
+            }
+        
+        }
+    }
+    
+    std::vector<size_t> bound_vec() const
+    {
+        return std::vector<size_t>(_bounds.begin(), _bounds.end());
+    }
+};
+
+template <typename W>
+static const stamp_t_struct<W,3> standart_3d_stamp(std::vector<W>(
+      { -14,0,14, -47,0, 47,-14,0,14,
+        -47,0,47,-162,0,162,-47,0,47,
+        -14,0,14, -47,0, 47,-14,0,14}), std::array<size_t,3>({3,3,3}));
+
+    /*std::vector<int32_t> stamp({
+        -1,0,1,-2,0,2,-1,0,1,
+        -2,0,2,-4,0,4,-2,0,2,
+        -1,0,1,-2,0,2,-1,0,1
+    });*/
+template <typename W>
+static const stamp_t_struct<W,2> standart_2d_stamp(std::vector<W>({-47,0,47,-162,0,162,-47,0,47}), std::array<size_t,2>({3,3}));
+
+
 template <typename T, typename V, typename W>
 void calculate_differations(
     std::vector<T> const & ior,
@@ -352,62 +442,21 @@ void calculate_differations(
     W div,
     std::vector<size_t> & output_sizes)
 {
-    /*std::vector<int32_t> stamp({
-        -1,0,1,-2,0,2,-1,0,1,
-        -2,0,2,-4,0,4,-2,0,2,
-        -1,0,1,-2,0,2,-1,0,1
-    });*/
-    std::vector<W> stamp({
-        -14,0,14,-47,0,47,-14,0,14,
-        -47,0,47,-162,0,162,-47,0,47,
-        -14,0,14,-47,0,47,-14,0,14
-    });   
-    auto transform = UTIL::transform_iter(stamp.begin(), UTIL::abs);
-    W stamp_weight = std::accumulate(transform, transform + stamp.size(), W(0), std::plus<W>()) * div;
-         
-    std::vector<size_t> stencil_bounds(3,3);
+    std::array<std::vector<V>* ,3> diff({&diffx, &diffy, &diffz});
+    W stamp_weight = standart_3d_stamp<W>._weight * div;
 #ifndef NDEBUG 
     export_image_stack("differentiations/orig", ior, bounds);
 #endif
     std::exception_ptr eptr;
-    convolution<T, W, V> conv(ior, bounds, stencil_bounds);
+    std::vector<size_t> bound_vec = standart_3d_stamp<W>.bound_vec();
+    convolution<T, W, V> conv(ior, bounds, bound_vec);
     #pragma omp parallel for num_threads(3)
     for (size_t i = 0; i < 3; ++i){
         try{
-            std::vector<size_t> local_output_sizes;
-            switch(i)
-            {
-                case 0:
-                {
-                    
-                    conv(stamp, stamp_weight, diffx);
-    #ifndef NDEBUG 
-                    export_image_stack("differentiations/diffx", diffx, local_output_sizes);
-    #endif
-                    break;
-                }
-                case 1: 
-                {
-                    std::vector<W> stencil;
-                    std::cout << local_output_sizes.data() << std::endl;
-                    swap_dimensions(stamp, stencil, stencil_bounds,1,2);
-                    conv( stencil, stamp_weight, diffy);
-    #ifndef NDEBUG 
-                    export_image_stack("differentiations/diffy", diffy, local_output_sizes);
-    #endif
-                    break;
-                }
-                case 2: 
-                {
-                    std::vector<W> stencil;
-                    swap_dimensions(stamp, stencil, stencil_bounds,0,2);
-                    conv(stencil, stamp_weight, diffz);
-    #ifndef NDEBUG 
-                    export_image_stack("differentiations/diffz", diffz, local_output_sizes);
-    #endif
-                    break;
-                }
-            }
+            conv(standart_3d_stamp<W>._reduced_offsets[i], standart_3d_stamp<W>._reduced_values[i], stamp_weight, *diff[i]);
+            #ifndef NDEBUG 
+            export_image_stack("differentiations/diff" + std::to_string(i), *diff[i], conv._output_sizes);
+            #endif
         }catch(...) {
             eptr = std::current_exception(); // capture
         }
@@ -427,29 +476,15 @@ void calculate_differations(
     W div,
     std::vector<size_t> & output_sizes)
 {
-    std::vector<W> stencilx({-47,0,47,-162,0,162,-47,0,47});
-    std::vector<size_t> stencil_bounds(2,3);
-    auto transform = UTIL::transform_iter(stencilx.begin(), UTIL::abs);
-    W stamp_weight = std::accumulate(transform, transform + stencilx.size(), W(0), std::plus<W>()) * div;
-    convolution<T, W, V> conv(ior, bounds, stencil_bounds);
+    std::array<std::vector<V>* ,2> diff({&diffx, &diffy});
+    W stamp_weight = standart_3d_stamp<W>._weight * div;
+    std::vector<size_t> bound_vec = standart_2d_stamp<W>.bound_vec();
+    convolution<T, W, V> conv(ior, bounds, bound_vec);
     std::exception_ptr eptr;
     #pragma omp parallel for num_threads(2)
     for (size_t i = 0; i < 2; ++i){
         try{
-            std::vector<size_t> local_output_sizes;
-            switch(i)
-            {
-                case 0:{
-                    conv(stencilx, stamp_weight, diffx);
-                    break;
-                }
-                case 1:{
-                    std::vector<W> stencily;
-                    swap_dimensions(stencilx, stencily, stencil_bounds,0,1);
-                    conv(stencily, stamp_weight, diffy);
-                    break;
-                }
-            }
+            conv(standart_2d_stamp<W>._reduced_offsets[i], standart_2d_stamp<W>._reduced_values[i], stamp_weight, *diff[i]);
         }catch(...) {
             eptr = std::current_exception(); // capture
         }
@@ -522,20 +557,9 @@ RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(
     _diff.resize(dim);
     switch (dim)
     {
-        case 2:
-        {
-            calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], int32_t(0x100), _diff_bound_vec);
-            break;
-        }
-        case 3:
-        {
-            calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], _diff[2], int32_t(0x100), _diff_bound_vec);
-            break;
-        }
-        default:
-        {
-            throw std::runtime_error("Illegal dimension: " + std::to_string(bound_vec.size()));
-        }
+        case 2:calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], int32_t(0x100), _diff_bound_vec);break;
+        case 3:calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], _diff[2], int32_t(0x100), _diff_bound_vec);break;
+        default:throw std::runtime_error("Illegal dimension: " + std::to_string(bound_vec.size()));
     }
     _calculation_object = new TraceRaysCu<diff_t>(_diff_bound_vec, _diff, _translucency_cropped);
     if (opt._loglevel < -1)
@@ -602,20 +626,9 @@ RaytraceScene<float, float, float>::RaytraceScene(
     _diff.resize(dim);
     switch (dim)
     {
-        case 2:
-        {
-            calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], float(0x100), _diff_bound_vec);
-            break;
-        }
-        case 3:
-        {
-            calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], _diff[2], float(0x100), _diff_bound_vec);
-            break;
-        }
-        default:
-        {
-            throw std::runtime_error("Illegal dimension: " + std::to_string(bound_vec.size()));
-        }
+        case 2:calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], float(0x100), _diff_bound_vec);break;
+        case 3:calculate_differations(_ior_log, bound_vec, _diff[0], _diff[1], _diff[2], float(0x100), _diff_bound_vec);break;
+        default:throw std::runtime_error("Illegal dimension: " + std::to_string(bound_vec.size()));
     }
     _calculation_object = new TraceRaysCu<float>(_diff_bound_vec, _diff, _translucency_cropped);
     if (opt._loglevel < -1)
@@ -683,9 +696,9 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
                     IorType interpolated = interp(start_position.begin() + i);
                     for (auto iter = start_direction.begin() + i; iter != start_direction.begin() + i + dim; ++iter)
                     {    
-                        if (std::is_same<IorType, float>::value)
+                        if (std::is_same<DirType, float>::value)
                         {
-                            *iter *= interpolated / 0x100;
+                            *iter *= interpolated;
                         }
                         else
                         {

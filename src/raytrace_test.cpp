@@ -76,52 +76,19 @@ void interpolation_test()
     }
 }
 
-void scaling_test2()
-{
-    std::cout << "scaling_test" << std::endl;
-    RaytraceInstance<float, float> inst;
-    inst._bound_vec = std::vector<size_t>({1000,10,10});
-    size_t num_pixel = std::accumulate(inst._bound_vec.begin(), inst._bound_vec.end(), size_t(1), std::multiplies<size_t>());
-    inst._ior = std::vector<float>(num_pixel, 0);
-    inst._translucency = std::vector<uint32_t>(num_pixel, 0xFFFFFFFF);
-    inst._start_position = std::vector<pos_t>({0x10000,0x10000,0x10000});
-    inst._start_direction = std::vector<float>({0x1800,0,0});
-    inst._scale = std::vector<float>({10,10,10});
-    inst._iterations = 100000;
-    inst._trace_path = true;
-    inst._minimum_brightness = 0;
-    size_t num_layer_pixel = inst._bound_vec[1] * inst._bound_vec[2];
-    for (size_t i = 0; i < inst._bound_vec[0]; ++i)
-    {
-        std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, 0x10000 + (i * 0x10000 / (inst._bound_vec[0] - 1)));
-    }
-    std::vector<pos_t> end_position;
-    std::vector<float> end_direction;
-    std::vector<uint32_t> remaining_light;
-    std::vector<pos_t> path;    
-    print_elements(std::cout << " beginposition ", inst._start_position.begin(), inst._start_position.end(), ' ', print_div<0x10000>) << std::endl;
-    print_elements(std::cout << " begindirection ", inst._start_direction.begin(), inst._start_direction.end(), ' ', print_div<0x100>) << std::endl;
-    trace_rays<float, float, float, float>(inst, end_position, end_direction, remaining_light, path, Options());
-    std::cout << static_cast<double>(end_direction[0]) / inst._start_direction[0] << std::endl;
-    print_elements(std::cout << " endposition ", end_position.begin(), end_position.end(), ' ', print_div<0x10000>) << std::endl;
-    print_elements(std::cout << " enddirection ", end_direction.begin(), end_direction.end(), ' ', print_div<0x100>) << std::endl;
-    std::cout << "path " << std::endl;
-    for (size_t i = 0; i < path.size(); i += 9000)
-    {
-        print_elements(std::cout, path.rbegin() + i, path.rbegin() + i + 3, ' ', print_div<0x10000>) << std::endl;
-    }
-}
-
+template<typename IOR_TYPE, typename IORLOG_TYPE, typename DIR_TYPE, typename DIFF_TYPE>
 void scaling_test()
 {
+    Options opt;
+    opt._loglevel = -3;
     std::cout << "scaling_test" << std::endl;
-    RaytraceInstance<ior_t, dir_t> inst;
+    RaytraceInstance<IOR_TYPE, DIR_TYPE> inst;
     inst._bound_vec = std::vector<size_t>({1000,10,10});
     size_t num_pixel = std::accumulate(inst._bound_vec.begin(), inst._bound_vec.end(), size_t(1), std::multiplies<size_t>());
-    inst._ior = std::vector<ior_t>(num_pixel, 0);
+    inst._ior = std::vector<IOR_TYPE>(num_pixel, 0);
     inst._translucency = std::vector<uint32_t>(num_pixel, 0xFFFFFFFF);
-    inst._start_position = std::vector<pos_t>({0x10000,0x10000,0x10000});
-    inst._start_direction = std::vector<dir_t>({0x1800,0,0});
+    inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000});
+    inst._start_direction = std::vector<DIR_TYPE>({std::is_same<DIR_TYPE, dir_t>() ? 0x1800 : 0x18,0,0});
     inst._scale = std::vector<float>({10,10,10});
     inst._iterations = 100000;
     inst._trace_path = true;
@@ -129,18 +96,25 @@ void scaling_test()
     size_t num_layer_pixel = inst._bound_vec[1] * inst._bound_vec[2];
     for (size_t i = 0; i < inst._bound_vec[0]; ++i)
     {
-        std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, 0x10000 + (i * 0x10000 / (inst._bound_vec[0] - 1)));
+        if (std::is_same<IOR_TYPE, ior_t>())
+        {
+            std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, 0x10000 + i * 0x10000 / (inst._bound_vec[0] - 1));
+        }
+        else
+        {
+            std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, 1 + static_cast<float>(i) / (inst._bound_vec[0] - 1));
+        }
     }
     std::vector<pos_t> end_position;
-    std::vector<dir_t> end_direction;
+    std::vector<DIR_TYPE> end_direction;
     std::vector<uint32_t> remaining_light;
     std::vector<pos_t> path;    
     print_elements(std::cout << " beginposition ", inst._start_position.begin(), inst._start_position.end(), ' ', print_div<0x10000>) << std::endl;
     print_elements(std::cout << " begindirection ", inst._start_direction.begin(), inst._start_direction.end(), ' ', print_div<0x100>) << std::endl;
-    trace_rays<ior_t, iorlog_t, diff_t, dir_t>(inst, end_position, end_direction, remaining_light, path, Options());
+    trace_rays<IOR_TYPE, IORLOG_TYPE, DIFF_TYPE, DIR_TYPE>(inst, end_position, end_direction, remaining_light, path, opt);
     std::cout << static_cast<double>(end_direction[0]) / inst._start_direction[0] << std::endl;
     print_elements(std::cout << " endposition ", end_position.begin(), end_position.end(), ' ', print_div<0x10000>) << std::endl;
-    print_elements(std::cout << " enddirection ", end_direction.begin(), end_direction.end(), ' ', print_div<0x100>) << std::endl;
+    print_elements(std::cout << " enddirection ", end_direction.begin(), end_direction.end(), ' ', print_div<std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 1>) << std::endl;
     std::cout << "path " << std::endl;
     for (size_t i = 0; i < path.size(); i += 9000)
     {
@@ -190,7 +164,8 @@ int main(int argc, char* argv[])
     {
         if (std::string("#s") == argv[1])
         {
-            scaling_test();
+            scaling_test<ior_t, iorlog_t, dir_t, diff_t>();
+            scaling_test<float, float, float, float>();
             return 0;
         }
         else if (std::string("#i") == argv[1])
