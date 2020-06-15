@@ -87,7 +87,7 @@ void scaling_test()
     size_t num_pixel = std::accumulate(inst._bound_vec.begin(), inst._bound_vec.end(), size_t(1), std::multiplies<size_t>());
     inst._ior = std::vector<IOR_TYPE>(num_pixel, 0);
     inst._translucency = std::vector<uint32_t>(num_pixel, 0xFFFFFFFF);
-    inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000,static_cast<pos_t>(0x10000*inst._bound_vec[0] - 0x20000),0x40000,0x40000});
+    inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000,static_cast<pos_t>(0x10000*inst._bound_vec[0] - 0x30000),0x40000,0x40000});
     DIR_TYPE xdir = 0x18 * (std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 0x1);
     inst._start_direction = std::vector<DIR_TYPE>({xdir,0,0, static_cast<DIR_TYPE>(-xdir), 0, 0});
     inst._scale = std::vector<float>({10,10,10});
