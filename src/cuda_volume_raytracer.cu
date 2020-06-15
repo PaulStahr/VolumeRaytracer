@@ -86,6 +86,7 @@ struct raydata_t{
     cuda_tuple<pos_t,dim> _position;
     cuda_tuple<DirType,dim> _direction;
     brightness_t _remaining_brightness;
+    uint32_t _iterations;
 };
 
 __host__ __device__ cuda_tuple<int32_t, 2> interpolate(
@@ -280,7 +281,6 @@ __global__ void trace_ray(
     cuda_tuple<uint32_t,2> bounds,
     raydata_t<2, dir_t> *raydata,
     P path,
-    uint32_t iterations,
     B minimum_brightness,
     uint32_t n)
 {
@@ -288,9 +288,10 @@ __global__ void trace_ray(
     if (i < n)
     {
         raydata += i;
-        path += iterations * i;
         cuda_tuple<pos_t,2> pos = raydata->_position;
         cuda_tuple<int32_t,2> direction = make_struct<int32_t,2>()(raydata->_direction);
+        uint32_t iterations = raydata->_iterations;
+        path += iterations * i;
         direction *= 0x10000;
         
         B brightness = 0xFFFFFFFF;
@@ -320,9 +321,10 @@ __global__ void trace_ray(
             }
         }
         direction /= 0x10000;
-        raydata->_direction = make_struct<int16_t,2>()(direction);
         raydata->_position = pos;
+        raydata->_direction = make_struct<int16_t,2>()(direction);
         raydata->_remaining_brightness = brightness;
+        raydata->_iterations = iterations;
     }
 }
 
@@ -333,7 +335,6 @@ __global__ void trace_ray(
     cuda_tuple<uint32_t,3> bounds,
     raydata_t<3, dir_t> *raydata,
     P path,
-    uint32_t iterations,
     B minimum_brightness,
     uint16_t n)
 {
@@ -344,6 +345,7 @@ __global__ void trace_ray(
         path += iterations * 3 * i;
         cuda_tuple<uint32_t,3> pos = raydata->_position;
         cuda_tuple<int32_t,3> direction = make_struct<int32_t,3>()(raydata->_direction);
+        uint32_t iterations = raydata._iterations;
         direction *= 0x10000;
 
         B brightness = 0xFFFFFFFF;
@@ -372,9 +374,10 @@ __global__ void trace_ray(
             }
         }
         direction /= 0x10000;
-        raydata->_direction = make_struct<dir_t,3>()(direction);
         raydata->_position = pos;
+        raydata->_direction = make_struct<dir_t,3>()(direction);
         raydata->_remaining_brightness = brightness;
+        raydata->_iterations = iterations;
     }
 }*/
 
@@ -429,11 +432,11 @@ inline __host__ __device__ void trace_ray_function(
     cuda_tuple<float,dim> scale,
     raydata_t<dim, DirType> *raydata,
     P path, /*cuda_tuple<pos_t,dim>*/    
-    uint32_t iterations,
     B minimum_brightness)
 {
     cuda_tuple<uint32_t,dim> pos = raydata->_position;
     cuda_tuple<float,dim> direction = make_struct<float,dim>()(raydata->_direction);
+    uint32_t iterations = raydata->_iterations;
     if(std::is_same<dir_t, DirType>::value)
     {
         direction *= 0x100;
@@ -519,6 +522,7 @@ inline __host__ __device__ void trace_ray_function(
     {
         raydata->_remaining_brightness = brightness;
     }
+    raydata->_iterations = iterations;
 }
 
 template <typename P, typename T, typename B, typename DiffType, typename DirType, uint8_t dim>
@@ -537,7 +541,7 @@ void trace_rays_cpu(
     #pragma omp parallel for num_threads(num_threads) if(blocksize > 0x100)
     for (size_t i = 0; i < blocksize; ++i)
     {
-        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, scale, raydata + i, path + iterations * i, iterations, minimum_brightness);
+        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, scale, raydata + i, path + iterations * i, minimum_brightness);
     }
 }
 
@@ -556,7 +560,7 @@ __global__ void trace_rays_gpu(
     uint16_t i = blockDim.x * blockIdx.x + threadIdx.x;
     if (i < n)
     {
-        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, scale, raydata + i, path + iterations * i, iterations, minimum_brightness);
+        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, scale, raydata + i, path + iterations * i, minimum_brightness);
     }
 }
 
@@ -627,6 +631,7 @@ template <int dim, typename DirType>
 void fill_struct(
     std::vector<pos_t> const & start_position,
     std::vector<DirType> const & start_direction,
+    size_t iterations,
     std::vector<raydata_t<dim, DirType> > & raydata)
 {
     size_t num_rays = start_position.size() / dim;
@@ -640,6 +645,7 @@ void fill_struct(
         back._direction = reinterpret_cast<cuda_tuple<DirType, dim>const * >(start_direction.data())[i];
         
         back._remaining_brightness=std::numeric_limits<brightness_t>::max();
+        back._iterations = iterations;
     } 
 }
 
@@ -650,6 +656,7 @@ void read_struct(
     std::vector<brightness_t> & remaining_light,
     std::vector<raydata_t<dim, DirType> > const & raydata)
 {
+    bool warn = false;
     for (size_t i = 0; i < raydata.size(); ++i)
     {
         raydata_t<dim, DirType> const & current = raydata[i];
@@ -657,6 +664,14 @@ void read_struct(
         reinterpret_cast<cuda_tuple<pos_t, dim> * >(position.data())[i] = current._position;
         reinterpret_cast<cuda_tuple<DirType, dim> * >(direction.data())[i] = current._direction;
         remaining_light[i] = current._remaining_brightness;
+        if (current._iterations == 0 || current._iterations == std::numeric_limits<uint32_t>::max())
+        {
+            warn = true;
+        }
+    }
+    if (warn)
+    {
+        std::cout << "Warning, maximum iterations hitted" << std::endl;
     }
 }
     
@@ -696,7 +711,7 @@ size_t inline sizeofvec(std::vector<T> const & vec)
     }
     
     std::vector<raydata_t<2, dir_t> > ray_data;
-    fill_struct<2>(start_position, start_direction, ray_data);
+    fill_struct<2>(start_position, start_direction, iterations, ray_data);
     HANDLE_ERROR(cudaMalloc(&raydata_cuda,sizeofvec(ray_data)));
     HANDLE_ERROR(cudaMemcpyAsync(raydata_cuda,ray_data.data(),     sizeofvec(ray_data), cudaMemcpyHostToDevice));
     std::vector<diff_t> diff_interleaved;
@@ -893,7 +908,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     }
 
     std::vector<raydata_t<dim, DirType> > ray_data;
-    fill_struct<dim>(start_position, start_direction, ray_data);
+    fill_struct<dim>(start_position, start_direction, iterations, ray_data);
     size_t maximum_rays_per_kernel = 0x8000;
     size_t threads_per_block = 0x80;
     //size_t maximum_rays_per_kernel = 64;
