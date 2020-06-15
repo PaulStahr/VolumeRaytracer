@@ -148,6 +148,8 @@ RayTraceSceneInstanceRef<IorType>::RayTraceSceneInstanceRef(RayTraceSceneInstanc
 
 template RayTraceSceneInstanceRef<ior_t>::RayTraceSceneInstanceRef(RayTraceSceneInstance<ior_t> & ref);
 
+template RayTraceSceneInstanceRef<float>::RayTraceSceneInstanceRef(RayTraceSceneInstance<float> & ref);
+
 template <typename BoundIter, typename PositionIterator>
 void get_position(size_t index, BoundIter bound_begin, BoundIter bound_end, PositionIterator position_out)
 {
@@ -500,6 +502,8 @@ template <typename IorType, typename IorLogType, typename DiffType>
 RaytraceScene<IorType, IorLogType, DiffType>::RaytraceScene(RayTraceSceneInstanceRef<IorType> const & ref, Options const & opt): RaytraceScene(ref._bound_vec, ref._ior, ref._translucency, opt){}
 
 template RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(RayTraceSceneInstanceRef<ior_t> const & ref, Options const & opt);
+
+template RaytraceScene<float, float, float>::RaytraceScene(RayTraceSceneInstanceRef<float> const & ref, Options const & opt);
 
 template <>
 RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(
@@ -899,7 +903,7 @@ template void trace_rays<float, float, float, float>(
     Options const & opt);*/
 
 template void RaytraceScene<float, float, float>::trace_rays<float>(
-    RayTraceRayInstance<float> const & ref,
+    RayTraceRayInstanceRef<float> const & ref,
     std::vector<pos_t> & end_position,
     std::vector<float> & end_direction,
     std::vector<brightness_t> & remaining_light,

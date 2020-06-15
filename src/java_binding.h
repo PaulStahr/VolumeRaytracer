@@ -26,9 +26,9 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1options
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    new_instance
- * Signature: (Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;J)J
+ * Signature: (Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/IntBuffer;J)J
  */
-JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2J
+JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_IntBuffer_2J
   (JNIEnv *, jclass, jobject, jobject, jobject, jlong);
 
 /*

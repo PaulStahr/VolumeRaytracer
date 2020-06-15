@@ -203,6 +203,8 @@ struct RaytraceInstance : RaytraceInstanceBase
     uint32_t                _iterations;
     bool                    _trace_path;
     bool                    _normalize_length;
+    
+    RaytraceInstance(){}
 };
 
 template <typename IorType, typename DirType>

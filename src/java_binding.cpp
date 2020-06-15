@@ -56,6 +56,16 @@ void vec_to_jni(JNIEnv &env, jobject obj, std::vector<T> const & vec, Transforma
     std::transform(vec.begin(), vec.end(), buff, tr);
 }
 
+
+
+template <typename T, typename V>
+bool delete_if_instance_of(T *ptr)
+{
+    V* tmp = dynamic_cast<V*>(ptr);
+    if (tmp){delete tmp;return true;}
+    return false;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -100,9 +110,9 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1options
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    new_instance
- * Signature: (Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;)J
+ * Signature: (Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/IntBuffer;J)J
  */
-JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2J
+JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_IntBuffer_2J
   (JNIEnv *env, jclass, jobject bounds, jobject ior, jobject translucency, jlong opt_pt){
     try
     {
@@ -118,7 +128,6 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Lj
             SERIALIZE::write_value(debug_out, inst);
             debug_out.close();
         }
-
         std::cout << "bound_size:" << inst._bound_vec.size() << std::endl;
         RaytraceScene<float, float, float> *scene = new RaytraceScene<float, float, float>(inst, opt);
         return reinterpret_cast<jlong>(scene);
@@ -295,25 +304,10 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjav
  */
 JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_delete_1instance (JNIEnv *env, jclass, jlong pointer)
 {
-    std::cout << "delete" <<std::endl;
     RaytraceSceneBase *sceneb = reinterpret_cast<RaytraceSceneBase*>(pointer);
     try{
-        {
-            RaytraceScene<ior_t, iorlog_t, diff_t>* tmp = dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
-            if (tmp)
-            {
-                delete tmp;
-                return;
-            }
-        }
-        {
-            RaytraceScene<float, float, float>* tmp = dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
-            if (tmp)
-            {
-                delete tmp;
-                return;
-            }
-        }
+        delete_if_instance_of<RaytraceSceneBase, RaytraceScene<ior_t, iorlog_t, diff_t> >(sceneb);
+        delete_if_instance_of<RaytraceSceneBase, RaytraceScene<float, float, float> >(sceneb);
     }catch(std::exception const & e)
     {
         env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());

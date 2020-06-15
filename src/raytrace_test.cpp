@@ -89,7 +89,7 @@ void scaling_test()
     inst._translucency = std::vector<uint32_t>(num_pixel, 0xFFFFFFFF);
     inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000,static_cast<pos_t>(0x10000*inst._bound_vec[0] - 0x30000),0x40000,0x40000});
     DIR_TYPE xdir = 0x18 * (std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 0x1);
-    inst._start_direction = std::vector<DIR_TYPE>({xdir,0,0, static_cast<DIR_TYPE>(-xdir), 0, 0});
+    inst._start_direction = std::vector<DIR_TYPE>({xdir,0,0, static_cast<DIR_TYPE>(-2*xdir), 0, 0});
     inst._scale = std::vector<float>({10,10,10});
     inst._iterations = 100000;
     inst._trace_path = true;
@@ -97,15 +97,12 @@ void scaling_test()
     size_t num_layer_pixel = inst._bound_vec[1] * inst._bound_vec[2];
     for (size_t i = 0; i < inst._bound_vec[0]; ++i)
     {
-        if (std::is_same<IOR_TYPE, ior_t>())
-        {
-            std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, 0x10000 + i * 0x10000 / (inst._bound_vec[0] - 1));
-        }
-        else
-        {
-            std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, 1 + static_cast<float>(i) / (inst._bound_vec[0] - 1));
-        }
+        IOR_TYPE fill_value;
+        if (std::is_same<IOR_TYPE, ior_t>()){fill_value = 0x10000 + 0x10000 *          i  / (inst._bound_vec[0] - 1);}
+        else                                {fill_value = 1       + static_cast<float>(i) / (inst._bound_vec[0] - 1);}
+        std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, fill_value);
     }
+    
     std::vector<pos_t> end_position;
     std::vector<DIR_TYPE> end_direction;
     std::vector<uint32_t> remaining_light;
