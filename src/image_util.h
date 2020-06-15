@@ -327,24 +327,31 @@ size_t get_index(BoundIter bound_begin, BoundIter bound_end, PosIter pos)
     return index;
 }
 
+class interpolator_base
+{
+public:
+    size_t _dim;
+    std::vector<size_t> _indices;
+    interpolator_base(size_t dim_) : _dim(dim_){
+        _indices.reserve(1lu << _dim);
+    }
+};
+
 template <typename T>
-class interpolator
+class interpolator : interpolator_base
 {
 private:
     std::vector<T> const & _image;
     std::vector<size_t> const & _bound_vec;
-    size_t _dim;
     std::vector<T> _image_values;
-    std::vector<size_t> _indices;
 public:    
-    interpolator(std::vector<T> const & image_, std::vector<size_t> const & bound_vec_) : _image(image_), _bound_vec(bound_vec_), _dim(bound_vec_.size())
+    interpolator(std::vector<T> const & image_, std::vector<size_t> const & bound_vec_) : interpolator_base(bound_vec_.size()), _image(image_), _bound_vec(bound_vec_)
     {
         if (image_.size() != std::accumulate(bound_vec_.begin(), bound_vec_.end(), size_t(1), std::multiplies<size_t>()))
         {
             throw std::runtime_error("image_size doensn't match bounds:" + std::to_string(image_.size()) + "!=" + std::to_string(std::accumulate(bound_vec_.begin(), bound_vec_.end(), size_t(1), std::multiplies<size_t>())));
         }
         _image_values.reserve(1lu << _dim);
-        _indices.reserve(1lu << _dim);
     }
     
     template <typename PositionIterator>
@@ -373,23 +380,21 @@ public:
 };
 
 template <>
-class interpolator<float>
+class interpolator<float> : interpolator_base
 {
 private:
     std::vector<float> const & _image;
     std::vector<size_t> const & _bound_vec;
-    size_t _dim;
     std::vector<float> _image_values;
-    std::vector<size_t> _indices;
+    float _end_multiplier;
 public:    
-    interpolator(std::vector<float> const & image_, std::vector<size_t> const & bound_vec_) : _image(image_), _bound_vec(bound_vec_), _dim(bound_vec_.size())
+    interpolator(std::vector<float> const & image_, std::vector<size_t> const & bound_vec_) : interpolator_base(bound_vec_.size()), _image(image_), _bound_vec(bound_vec_), _end_multiplier(1./pow(0x10000,bound_vec_.size()))
     {
         if (image_.size() != std::accumulate(bound_vec_.begin(), bound_vec_.end(), size_t(1), std::multiplies<size_t>()))
         {
             throw std::runtime_error("image_size doensn't match bounds:" + std::to_string(image_.size()) + "!=" + std::to_string(std::accumulate(bound_vec_.begin(), bound_vec_.end(), size_t(1), std::multiplies<size_t>())));
         }
         _image_values.reserve(1lu << _dim);
-        _indices.reserve(1lu << _dim);
     }
     
     template <typename PositionIterator>
@@ -409,15 +414,11 @@ public:
             size_t multl = 0x10000 - multr;
             for (size_t i = 0; i < _image_values.size()/2; ++i)
             {
-                _image_values[i] = static_cast<uint64_t>(_image_values[i]) * multl + static_cast<uint64_t>(_image_values[i + _image_values.size() / 2]) * multr;
+                _image_values[i] = _image_values[i] * multl + _image_values[i + _image_values.size() / 2] * multr;
             }
             _image_values.erase(_image_values.begin() + _image_values.size() / 2, _image_values.end());
         }
-        for (size_t d = 0; d < _dim; ++d)
-        {
-            _image_values.front() /= 0x10000;
-        }
-        return _image_values.front();
+        return _image_values.front() * _end_multiplier;
     }
 };
 

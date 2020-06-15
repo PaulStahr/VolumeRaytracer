@@ -10,7 +10,7 @@ jni_library="/usr/lib/jvm/java-11-openjdk-amd64/include/"
 PT_BIN := $(shell python3-config '--extension-suffix')
 CFLAGS= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++14 -lstdc++fs
 LFLAGS= -lstdc++fs -lpng -ljpeg
-#CFLAGS += -DNDEBUG
+CFLAGS += -DNDEBUG
 
 SRC := src
 BUILT := built
@@ -52,6 +52,9 @@ cuda_raytrace_java.so: $(BUILT)/image_io.o $(BUILT)/image_util.o $(BUILT)/raytra
 
 cuda_test: $(BUILT)/image_util.o $(BUILT)/image_io.o $(BUILT)/raytracer.o $(BUILT)/raytrace_test.o $(BUILT)/io_util.o $(BUILT)/serialize.o $(BUILT)/util.o
 	g++-7 $(CFLAGS) $(BUILT)/image_util.o $(BUILT)/image_io.o $(BUILT)/raytracer.o $(BUILT)/serialize.o $(BUILT)/util.o $(BUILT)/io_util.o $(BUILT)/raytrace_test.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -fPIC -o cuda_test ${LFLAGS}
+
+scaling_test: cuda_test
+	./cuda_test "#s"
 
 all: cuda_test cuda_raytrace$(PT_BIN) cuda_raytrace_java.so
 

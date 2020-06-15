@@ -808,7 +808,6 @@ TraceRaysCu<DiffType>::TraceRaysCu(
         tmp.push_back(d->cbegin());
     }
     tmp.push_back(extra_component.cbegin()); 
-    std::cout << "hi" << tmp.size() << std::endl;
     interleave(tmp, tmp.size(), diff[0]->size(), _diff_interleaved);
     _diff_interleaved_cuda.resize(inited);
     _translucency_cuda.resize(inited);

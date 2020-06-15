@@ -87,8 +87,9 @@ void scaling_test()
     size_t num_pixel = std::accumulate(inst._bound_vec.begin(), inst._bound_vec.end(), size_t(1), std::multiplies<size_t>());
     inst._ior = std::vector<IOR_TYPE>(num_pixel, 0);
     inst._translucency = std::vector<uint32_t>(num_pixel, 0xFFFFFFFF);
-    inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000});
-    inst._start_direction = std::vector<DIR_TYPE>({std::is_same<DIR_TYPE, dir_t>() ? 0x1800 : 0x18,0,0});
+    inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000,static_cast<pos_t>(0x10000*inst._bound_vec[0] - 0x20000),0x40000,0x40000});
+    DIR_TYPE xdir = 0x18 * (std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 0x1);
+    inst._start_direction = std::vector<DIR_TYPE>({xdir,0,0, static_cast<DIR_TYPE>(-xdir), 0, 0});
     inst._scale = std::vector<float>({10,10,10});
     inst._iterations = 100000;
     inst._trace_path = true;
@@ -112,14 +113,15 @@ void scaling_test()
     print_elements(std::cout << " beginposition ", inst._start_position.begin(), inst._start_position.end(), ' ', print_div<0x10000>) << std::endl;
     print_elements(std::cout << " begindirection ", inst._start_direction.begin(), inst._start_direction.end(), ' ', print_div<0x100>) << std::endl;
     trace_rays<IOR_TYPE, IORLOG_TYPE, DIFF_TYPE, DIR_TYPE>(inst, end_position, end_direction, remaining_light, path, opt);
-    std::cout << static_cast<double>(end_direction[0]) / inst._start_direction[0] << std::endl;
+    std::cout << "scaling " << static_cast<double>(end_direction[0]) / inst._start_direction[0] << ' ' << static_cast<double>(end_direction[3]) / inst._start_direction[3] << std::endl;
     print_elements(std::cout << " endposition ", end_position.begin(), end_position.end(), ' ', print_div<0x10000>) << std::endl;
     print_elements(std::cout << " enddirection ", end_direction.begin(), end_direction.end(), ' ', print_div<std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 1>) << std::endl;
-    std::cout << "path " << std::endl;
+    std::cout << "path " << ' ';
     for (size_t i = 0; i < path.size(); i += 9000)
     {
-        print_elements(std::cout, path.rbegin() + i, path.rbegin() + i + 3, ' ', print_div<0x10000>) << std::endl;
+        print_elements(std::cout, path.rbegin() + i, path.rbegin() + i + 3, ' ', print_div<0x10000>) << ' ';
     }
+    std::cout << std::endl;
 }
 
 int main(int argc, char* argv[])
