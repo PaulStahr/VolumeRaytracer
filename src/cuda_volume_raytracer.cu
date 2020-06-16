@@ -429,7 +429,7 @@ inline __host__ __device__ void trace_ray_function(
     cuda_tuple<DiffType,dim + 1>  *diff_interleaved,
     T translucency,/*translucency_t*/
     cuda_tuple<uint16_t,dim> bounds,
-    cuda_tuple<float,dim> scale,
+    cuda_tuple<float,dim> invscale,
     raydata_t<dim, DirType> *raydata,
     P path, /*cuda_tuple<pos_t,dim>*/    
     B minimum_brightness)
@@ -447,29 +447,7 @@ inline __host__ __device__ void trace_ray_function(
     }
     B brightness = 0xFFFFFFFF;
     path[--iterations] = pos;
-    /*for (uint32_t i = 0; i < prod(bounds); ++i)
-    {
-        if (diff_interleaved[i].x != 0 || diff_interleaved[i].y != 0)
-        {
-            //print(diff_interleaved[i]);
-            printf("%u ",i);
-        }
-    }*/
-    /*for (uint32_t i = 0; i < prod(bounds); ++i)
-    {
-        if (diff_interleaved[i].x != 0 || diff_interleaved[i].y != 0 || diff_interleaved[i].z != 0)
-        {
-             printf(".");
-        }
-        else
-        {
-            printf("#");
-        }
-        if (i % bounds.x == 0)
-        {
-            printf("\n");
-        }
-    }*/
+
     while (iterations -- > 0 && make_struct<uint16_t, dim>()(pos >> 16) < bounds - 1)
     {
         if (translucency)
@@ -484,19 +462,12 @@ inline __host__ __device__ void trace_ray_function(
         cuda_tuple<float,dim + 1> interpolation = interpolatef(diff_interleaved, bounds, pos, type_uint8_t<dim + 1>());
         if (get(interpolation, dim) > 0)
         {
-            //printf("i = %f", interpolation.w);
             break;
         }
-        interpolation *= scale;
-        /*print(direction);
-        printf("+");
-        print(interpolation);
-        printf(" ");
-        print(pos);
-        printf("\n");*/
+        interpolation *= invscale;//TODO can be precalculated
         direction += interpolation;
         float ilen = 0x40000000p0f / dot(direction, direction);
-        pos += __float2int_rn2(direction * scale * ilen);
+        pos += __float2int_rn2(direction * invscale * ilen);
         path[iterations] = pos;
     }
     if (!std::is_same<P,DummyArray>::value)
@@ -530,7 +501,7 @@ void trace_rays_cpu(
     DiffType *diff_interleaved,
     T translucency,
     cuda_tuple<uint16_t,dim> bounds,
-    cuda_tuple<float,dim> scale,
+    cuda_tuple<float,dim> invscale,
     raydata_t<dim, DirType> *raydata,
     P path,
     uint32_t iterations,
@@ -541,7 +512,7 @@ void trace_rays_cpu(
     #pragma omp parallel for num_threads(num_threads) if(blocksize > 0x100)
     for (size_t i = 0; i < blocksize; ++i)
     {
-        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, scale, raydata + i, path + iterations * i, minimum_brightness);
+        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, invscale, raydata + i, path + iterations * i, minimum_brightness);
     }
 }
 
@@ -550,7 +521,7 @@ __global__ void trace_rays_gpu(
     DiffType *diff_interleaved,
     T translucency,
     cuda_tuple<uint16_t,dim> bounds,
-    cuda_tuple<float,dim> scale,
+    cuda_tuple<float,dim> invscale,
     raydata_t<dim, DirType> *raydata,
     P path,
     uint32_t iterations,
@@ -560,7 +531,7 @@ __global__ void trace_rays_gpu(
     uint16_t i = blockDim.x * blockIdx.x + threadIdx.x;
     if (i < n)
     {
-        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, scale, raydata + i, path + iterations * i, minimum_brightness);
+        trace_ray_function(reinterpret_cast<cuda_tuple<DiffType,dim + 1>* >(diff_interleaved), translucency, bounds, invscale, raydata + i, path + iterations * i, minimum_brightness);
     }
 }
 
@@ -693,7 +664,7 @@ size_t inline sizeofvec(std::vector<T> const & vec)
     std::vector<dir_t> & end_direction,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
-    std::vector<float> const & scale_vec,
+    std::vector<float> const & invscale_vec,
     brightness_t minimum_brightness,
     uint32_t iterations,
     bool trace_paths,
@@ -725,7 +696,7 @@ size_t inline sizeofvec(std::vector<T> const & vec)
 
     HANDLE_ERROR(cudaMemcpyAsync(diff_interleaved_cuda,           diff_interleaved.data(),                diff_interleaved.size()                 * sizeof(diff_t), cudaMemcpyHostToDevice));
     HANDLE_ERROR(cudaMemcpyAsync(translucency_cuda,    translucency_cropped.data(), translucency_cropped.size()  * sizeof(translucency_t), cudaMemcpyHostToDevice));
-    float2 scale = make_float2(scale_vec[0],scale_vec[1]);
+    float2 invscale = make_float2(invscale_vec[0],invscale_vec[1]);
 
     size_t maximum_rays_per_kernel = 32768;
     size_t threads_per_block = 128;
@@ -846,7 +817,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu(
     std::vector<DirType> & end_direction,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
-    std::vector<float> const & scale_vec,
+    std::vector<float> const & invscale_vec,
     brightness_t minimum_brightness,
     uint32_t iterations,
     bool trace_paths,
@@ -860,7 +831,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu(
                 end_direction,
                 remaining_light,
                 path,
-                scale_vec,
+                invscale_vec,
                 minimum_brightness,
                 iterations,
                 trace_paths,
@@ -874,7 +845,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu(
                 end_direction,
                 remaining_light,
                 path,
-                scale_vec,
+                invscale_vec,
                 minimum_brightness,
                 iterations,
                 trace_paths,
@@ -895,7 +866,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     std::vector<DirType> &      end_direction,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> &        path,
-    std::vector<float> const &  scale_vec,
+    std::vector<float> const &  invscale_vec,
     brightness_t                minimum_brightness,
     uint32_t                    iterations,
     bool                        trace_paths,
@@ -928,7 +899,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
         cpu_device_count = 0;
     }
     
-    cuda_tuple<float,dim> scale = make_struct<float,dim>()(scale_vec.data());
+    cuda_tuple<float,dim> invscale = make_struct<float,dim>()(invscale_vec.data());
     cuda_tuple<uint16_t, dim> output_sizes = make_struct<uint16_t, dim>()(_output_sizes.data());
     omp_set_nested(1);
     size_t count_cpu = 0;
@@ -964,7 +935,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                     _diff_interleaved_cuda[thread_num],
                     _translucency_cuda[thread_num],
                     output_sizes,
-                    scale,
+                    invscale,
                     raydata_cuda[thread_num],
                     path_cuda[thread_num],
                     iterations,
@@ -977,7 +948,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                     _diff_interleaved_cuda[thread_num],
                     DummyArray(),//_translucency_cuda,
                     output_sizes,
-                    scale,
+                    invscale,
                     raydata_cuda[thread_num],
                     DummyArray(),
                     iterations,
@@ -1001,7 +972,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                     _diff_interleaved.data(),
                     DummyArray(),//_translucency_cropped.data(),
                     output_sizes,
-                    scale,
+                    invscale,
                     ray_data.data() + i,
                     reinterpret_cast<cuda_tuple<pos_t,dim>*>(path.data()) + i * iterations,
                     iterations,
@@ -1013,7 +984,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                     _diff_interleaved.data(),
                     DummyArray(),//_translucency_cropped.data(),
                     output_sizes,
-                    scale,
+                    invscale,
                     ray_data.data() + i,
                     DummyArray(),
                     iterations,
@@ -1073,7 +1044,7 @@ template void TraceRaysCu<diff_t>::trace_rays_cu<dir_t>(
         std::vector<dir_t> & end_direction,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
-        std::vector<float> const & scale_vec,
+        std::vector<float> const & invscale_vec,
         brightness_t minimum_brightness,
         uint32_t iterations,
         bool trace_paths,
@@ -1086,7 +1057,7 @@ template void TraceRaysCu<float>::trace_rays_cu<dir_t>(
         std::vector<dir_t> & end_direction,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
-        std::vector<float> const & scale_vec,
+        std::vector<float> const & invscale_vec,
         brightness_t minimum_brightness,
         uint32_t iterations,
         bool trace_paths,
@@ -1099,7 +1070,7 @@ template void TraceRaysCu<diff_t>::trace_rays_cu<float>(
         std::vector<float> & end_direction,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
-        std::vector<float> const & scale_vec,
+        std::vector<float> const & invscale_vec,
         brightness_t minimum_brightness,
         uint32_t iterations,
         bool trace_paths,
@@ -1112,7 +1083,7 @@ template void TraceRaysCu<float>::trace_rays_cu<float>(
         std::vector<float> & end_direction,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
-        std::vector<float> const & scale_vec,
+        std::vector<float> const & invscale_vec,
         brightness_t minimum_brightness,
         uint32_t iterations,
         bool trace_paths,

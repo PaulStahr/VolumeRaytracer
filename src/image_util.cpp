@@ -41,7 +41,7 @@ std::ostream & write_value(std::ostream & out, RaytraceInstanceRef<IorType, DirT
     write_value(out, value._translucency);
     write_value(out, value._start_position);
     write_value(out, value._start_direction);
-    write_value(out, value._scale);
+    write_value(out, value._invscale);
     write_value(out, value._minimum_brightness);
     write_value(out, value._iterations);
     write_value(out, value._trace_path);
@@ -63,7 +63,7 @@ std::istream & read_value(std::istream & in, RaytraceInstance<IorType, DirType> 
     read_value(in, value._translucency);
     read_value(in, value._start_position);
     read_value(in, value._start_direction);
-    read_value(in, value._scale);
+    read_value(in, value._invscale);
     read_value(in, value._minimum_brightness);
     read_value(in, value._iterations);
     read_value(in, value._trace_path);
@@ -111,7 +111,7 @@ std::ostream & write_value(std::ostream & out, RayTraceRayInstanceRef<DirType> c
 {
     write_value(out, value._start_position);
     write_value(out, value._start_direction);
-    write_value(out, value._scale);
+    write_value(out, value._invscale);
     write_value(out, value._minimum_brightness);
     write_value(out, value._iterations);
     write_value(out, value._trace_path);
@@ -132,7 +132,7 @@ std::istream & read_value(std::istream & in, RayTraceRayInstance<DirType> & valu
     std::cout << "Read raytrace ray instance" << std::endl;
     read_value(in, value._start_position);
     read_value(in, value._start_direction);
-    read_value(in, value._scale);
+    read_value(in, value._invscale);
     read_value(in, value._minimum_brightness);
     read_value(in, value._iterations);
     read_value(in, value._trace_path);
@@ -658,7 +658,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         std::vector<DirType> & end_direction,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
-        std::vector<float> const & scale,
+        std::vector<float> const & invscale,
         brightness_t minimum_brightness,
         uint32_t iterations,
         bool trace_path,
@@ -755,7 +755,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         print_elements(std::cout << "start_position: ", start_position.begin(), start_position.end(), ' ') << std::endl;
         print_elements(std::cout << "start_direction:", start_direction.begin(), start_direction.end(), ' ') << std::endl;
     }
-     _calculation_object->trace_rays_cu(start_position, start_direction, end_position, end_direction, remaining_light, path, scale, minimum_brightness, iterations, trace_path, opt);
+     _calculation_object->trace_rays_cu(start_position, start_direction, end_position, end_direction, remaining_light, path, invscale, minimum_brightness, iterations, trace_path, opt);
     if (opt._loglevel < -2)
     {
         print_elements(std::cout << "end_position: ", end_position.begin(), end_position.end(), ' ') << std::endl;
@@ -777,14 +777,14 @@ void trace_rays(
     std::vector<DirType> & end_direction,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
-    std::vector<float> const & scale,
+    std::vector<float> const & invscale,
     brightness_t minimum_brightness,
     uint32_t iterations,
     bool trace_path,
     bool normalize_length,
     Options const & opt)
 {
-    RaytraceScene<IorType, IorLogType, DiffType>(bound_vec, ior, translucency, opt).trace_rays(start_position, start_direction, end_position, end_direction, remaining_light, path, scale, minimum_brightness, iterations, trace_path, normalize_length, opt);
+    RaytraceScene<IorType, IorLogType, DiffType>(bound_vec, ior, translucency, opt).trace_rays(start_position, start_direction, end_position, end_direction, remaining_light, path, invscale, minimum_brightness, iterations, trace_path, normalize_length, opt);
 }
 
 template <typename IorType, typename IorLogType, typename DiffType>
@@ -804,7 +804,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         end_direction,
         remaining_light,
         path,
-        ref._scale,
+        ref._invscale,
         ref._minimum_brightness,
         ref._iterations,
         ref._trace_path,
@@ -851,7 +851,7 @@ void trace_rays(
         end_direction,
         remaining_light,
         path,
-        inst._scale,
+        inst._invscale,
         inst._minimum_brightness,
         inst._iterations,
         inst._trace_path,
