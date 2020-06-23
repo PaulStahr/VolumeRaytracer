@@ -74,7 +74,7 @@ struct RayTraceRayInstance
 {
     std::vector<pos_t>     _start_position;
     std::vector<DirType>   _start_direction;
-    std::vector<float>     _scale;
+    std::vector<float>     _invscale;
     brightness_t           _minimum_brightness;
     uint32_t               _iterations;
     bool                   _trace_path;
@@ -88,7 +88,7 @@ struct RayTraceRayInstanceRef
 {
     std::vector<pos_t>      const & _start_position;
     std::vector<DirType>    const & _start_direction;
-    std::vector<float>      const & _scale;
+    std::vector<float>      const & _invscale;
     brightness_t            _minimum_brightness;
     uint32_t                _iterations;
     bool                    _trace_path;
@@ -97,7 +97,7 @@ struct RayTraceRayInstanceRef
     RayTraceRayInstanceRef(
         std::vector<pos_t>     const & start_position_,
         std::vector<DirType>   const & start_direction_,
-        std::vector<float>     const & scale_,
+        std::vector<float>     const & invscale_,
         brightness_t             minimum_brightness_,
         uint32_t                 iterations_,
         bool                     trace_path_,
@@ -105,7 +105,7 @@ struct RayTraceRayInstanceRef
                        ) : 
         _start_position(start_position_),
         _start_direction(start_direction_),
-        _scale(scale_),
+        _invscale(invscale_),
         _minimum_brightness(minimum_brightness_),
         _iterations(iterations_),
         _trace_path(trace_path_),
@@ -114,7 +114,7 @@ struct RayTraceRayInstanceRef
     RayTraceRayInstanceRef(RayTraceRayInstance<DirType> & other) : 
         _start_position(other._start_position),
         _start_direction(other._start_direction),
-        _scale(other._scale),
+        _invscale(other._invscale),
         _minimum_brightness(other._minimum_brightness),
         _iterations(other._iterations),
         _trace_path(other._trace_path),
@@ -198,7 +198,7 @@ struct RaytraceInstance : RaytraceInstanceBase
     std::vector<translucency_t>   _translucency;
     std::vector<pos_t>      _start_position;
     std::vector<DirType>    _start_direction;
-    std::vector<float>      _scale;
+    std::vector<float>      _invscale;
     brightness_t            _minimum_brightness;
     uint32_t                _iterations;
     bool                    _trace_path;
@@ -215,7 +215,7 @@ struct RaytraceInstanceRef
     std::vector<translucency_t>  const & _translucency;
     std::vector<pos_t>     const & _start_position;
     std::vector<DirType>   const & _start_direction;
-    std::vector<float>     const & _scale;
+    std::vector<float>     const & _invscale;
     brightness_t           _minimum_brightness;
     uint32_t               _iterations;
     bool                   _trace_path;
@@ -238,7 +238,7 @@ struct RaytraceInstanceRef
         _translucency(translucency_),
         _start_position(start_position_),
         _start_direction(start_direction_),
-        _scale(scale_),
+        _invscale(scale_),
         _minimum_brightness(minimum_brightness_),
         _iterations(iterations_),
         _trace_path(trace_path_),
@@ -252,7 +252,7 @@ struct RaytraceInstanceRef
         _translucency(other._translucency),
         _start_position(other._start_position),
         _start_direction(other._start_direction),
-        _scale(other._scale),
+        _invscale(other._invscale),
         _minimum_brightness(other._minimum_brightness),
         _iterations(other._iterations),
         _trace_path(other._trace_path),
@@ -290,7 +290,7 @@ std::ostream & write_value(std::ostream & out, RayTraceRayInstanceRef<DirType> c
 {
     write_value(out, value._start_position);
     write_value(out, value._start_direction);
-    write_value(out, value._scale);
+    write_value(out, value._invscale);
     write_value(out, value._minimum_brightness);
     write_value(out, value._iterations);
     write_value(out, value._trace_path);

@@ -466,7 +466,7 @@ inline __host__ __device__ void trace_ray_function(
         }
         interpolation *= invscale;//TODO can be precalculated
         direction += interpolation;
-        float ilen = 0x40000000p0f / dot(direction, direction);
+        float ilen = 0x42000000p0f / dot(direction, direction);//TODO Constant calculated by scaling test find mathematical description
         pos += __float2int_rn2(direction * invscale * ilen);
         path[iterations] = pos;
     }

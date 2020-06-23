@@ -90,8 +90,8 @@ void scaling_test()
     inst._start_position = std::vector<pos_t>({0x10000,0x40000,0x40000,static_cast<pos_t>(0x10000*inst._bound_vec[0] - 0x30000),0x40000,0x40000});
     DIR_TYPE xdir = 0x18 * (std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 0x1);
     inst._start_direction = std::vector<DIR_TYPE>({xdir,0,0, static_cast<DIR_TYPE>(-2*xdir), 0, 0});
-    inst._scale = std::vector<float>({10,10,10});
-    inst._iterations = 100000;
+    inst._invscale = std::vector<float>({10,10,10});
+    inst._iterations = 200000;
     inst._trace_path = true;
     inst._minimum_brightness = 0;
     size_t num_layer_pixel = inst._bound_vec[1] * inst._bound_vec[2];
@@ -142,8 +142,8 @@ int main(int argc, char* argv[])
             SERIALIZE::read_value(stream, ray_inst);
             stream.close();
         }
-        std::cout << ray_inst._scale.size() << std::endl;
-        std::cout << ray_inst._scale[0] << std::endl;
+        std::cout << ray_inst._invscale.size() << std::endl;
+        std::cout << ray_inst._invscale[0] << std::endl;
         Options opt;
         opt._loglevel = -4;
         RaytraceScene<ior_t, iorlog_t, diff_t> scene(scene_inst, opt);
