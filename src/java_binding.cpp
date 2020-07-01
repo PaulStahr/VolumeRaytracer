@@ -66,6 +66,108 @@ bool delete_if_instance_of(T *ptr)
     return false;
 }
 
+template<typename T>
+struct javatype_struct{typedef void _type;};
+template <> struct javatype_struct<uint64_t>{typedef jlong _type;};
+template <> struct javatype_struct<uint32_t>{typedef jint _type;};
+template <> struct javatype_struct<uint16_t>{typedef jshort _type;};
+template <> struct javatype_struct<uint8_t> {typedef jbyte _type;};
+template <> struct javatype_struct<int64_t> {typedef jlong _type;};
+template <> struct javatype_struct<int32_t> {typedef jint _type;};
+template <> struct javatype_struct<int16_t> {typedef jshort _type;};
+template <> struct javatype_struct<int8_t>  {typedef jbyte _type;};
+template <> struct javatype_struct<float>   {typedef jfloat _type;};
+template <> struct javatype_struct<double>  {typedef jdouble _type;};
+template <typename T>
+using javatype = typename javatype_struct<T>::_type;
+
+template <typename DirType>
+void java_trace_ray_impl(
+    JNIEnv *env,
+    jlong pointer,
+    jobject start_position,
+    jobject start_direction,
+    jobject end_iteration,
+    jobject scale,
+    jfloat minimum_brightness,
+    jint iterations,
+    jboolean trace_paths,
+    jobject trace,
+    jlong opt_pt
+)
+{
+    try
+    {
+        RaytraceSceneBase *sceneb = reinterpret_cast<RaytraceSceneBase*>(pointer);
+        
+        RayTraceRayInstance<DirType> ray_instance;
+        std::vector<pos_t> end_position_vec;
+        std::vector<DirType> end_direction_vec;
+        std::vector<brightness_t> remaining_light_vec;
+        std::vector<pos_t> trace_vec;
+        std::vector<pos_t> end_iteration_vec;
+        
+        jni_to_vec(*env, start_position, ray_instance._start_position, UTIL::identity_function, (jint)0);
+        jni_to_vec(*env, start_direction, ray_instance._start_direction, UTIL::identity_function, javatype<DirType>(0));
+        jni_to_vec(*env, scale, ray_instance._invscale, UTIL::identity_function, (jfloat)0);
+        ray_instance._minimum_brightness = minimum_brightness;
+        ray_instance._iterations = iterations;
+        ray_instance._trace_path = trace_paths;
+        ray_instance._normalize_length = true;
+        
+        Options &opt = *reinterpret_cast<Options *>(opt_pt);
+        if (opt._write_instance)
+        {
+            std::ofstream debug_out("debug_ray_instance");
+            SERIALIZE::write_value(debug_out, ray_instance);
+            debug_out.close();
+        }
+        
+        {
+            RaytraceScene<ior_t, iorlog_t, diff_t> *scene = dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
+            if (scene != nullptr)
+            {
+                scene->trace_rays(
+                    RayTraceRayInstanceRef<DirType>(ray_instance),
+                    end_position_vec,
+                    end_direction_vec,
+                    end_iteration_vec,
+                    remaining_light_vec,
+                    trace_vec,
+                    opt);
+                goto success;
+            }
+        }
+        {
+            RaytraceScene<float, float, float> *scene = dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
+            if (scene != nullptr)
+            {
+                scene->trace_rays(
+                    RayTraceRayInstanceRef<DirType>(ray_instance),
+                    end_position_vec,
+                    end_direction_vec,
+                    end_iteration_vec,
+                    remaining_light_vec,
+                    trace_vec,
+                    opt);
+                goto success;
+            }
+        }
+        std::cout << "Warning, can't parse input Scene" << std::endl;
+        success:
+        vec_to_jni(*env, start_position, end_position_vec, UTIL::identity_function, (jint)0);
+        vec_to_jni(*env, start_direction, end_direction_vec, UTIL::identity_function, javatype<DirType>(0));
+        vec_to_jni(*env, end_iteration, end_iteration_vec, UTIL::identity_function, (jint)0);
+        if (trace_paths)
+        {
+            vec_to_jni(*env, trace, trace_vec, UTIL::identity_function, (jint)0);
+        }
+    }catch(std::exception const & e)
+    {
+        env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());
+    }
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -138,163 +240,50 @@ JNIEXPORT jlong JNICALL Java_data_raytrace_OpticalVolumeObject_new_1instance__Lj
     }
 }
 
-
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    trace_rays
- * Signature: (JLjava/nio/IntBuffer;Ljava/nio/ShortBuffer;Ljava/nio/FloatBuffer;FIZ)V
+ * Signature: (JLjava/nio/IntBuffer;Ljava/nio/ShortBuffer;Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;FIZLjava/nio/IntBuffer;J)V
  */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_FloatBuffer_2FIZJ(
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2FIZLjava_nio_IntBuffer_2J
+(
     JNIEnv *env,
     jclass ,
     jlong pointer,
     jobject start_position,
     jobject start_direction,
+    jobject end_iteration,
     jobject scale,
     jfloat minimum_brightness,
     jint iterations,
     jboolean trace_paths,
+    jobject trace,
     jlong opt_pt)
 {
-    try
-    {
-        RaytraceSceneBase *sceneb = reinterpret_cast<RaytraceSceneBase*>(pointer);
-        RayTraceRayInstance<dir_t> ray_instance;
-        std::vector<pos_t> end_position_vec;
-        std::vector<dir_t> end_direction_vec;
-        std::vector<brightness_t> remaining_light_vec;
-        std::vector<pos_t> trace_vec;
-        
-        jni_to_vec(*env, start_position, ray_instance._start_position, UTIL::identity_function, (jint)0);
-        jni_to_vec(*env, start_direction, ray_instance._start_direction, UTIL::identity_function, (jshort)0);
-        jni_to_vec(*env, scale, ray_instance._scale, UTIL::identity_function, (jfloat)0);
-        ray_instance._minimum_brightness = minimum_brightness;
-        ray_instance._iterations = iterations;
-        ray_instance._trace_path = trace_paths;
-        ray_instance._normalize_length = true;
-        
-        Options &opt = *reinterpret_cast<Options *>(opt_pt);
-        if (opt._write_instance)
-        {
-            std::ofstream debug_out("debug_ray_instance");
-            SERIALIZE::write_value(debug_out, ray_instance);
-            debug_out.close();
-        }
-        
-        {
-            RaytraceScene<ior_t, iorlog_t, diff_t> *scene = dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
-            if (scene != nullptr)
-            {
-                scene->trace_rays(
-                    RayTraceRayInstanceRef<dir_t>(ray_instance),
-                    end_position_vec,
-                    end_direction_vec,
-                    remaining_light_vec,
-                    trace_vec,
-                    opt);
-            }
-        }
-        {
-            RaytraceScene<float, float, float> *scene = dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
-            if (scene != nullptr)
-            {
-                scene->trace_rays(
-                    RayTraceRayInstanceRef<dir_t>(ray_instance),
-                    end_position_vec,
-                    end_direction_vec,
-                    remaining_light_vec,
-                    trace_vec,
-                    opt);
-            }
-        }
-        
-        vec_to_jni(*env, start_position, end_position_vec, UTIL::identity_function, (jint)0);
-        vec_to_jni(*env, start_direction, end_direction_vec, UTIL::identity_function, (jshort)0);
-    }catch(std::exception const & e)
-    {
-        env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());
-    }
+    java_trace_ray_impl<dir_t>(env, pointer, start_position, start_direction, end_iteration, scale, minimum_brightness, iterations, trace_paths, trace, opt_pt);
 }
 
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    trace_rays
- * Signature: (JLjava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;FIZ)V
+ * Signature: (JLjava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;FIZLjava/nio/IntBuffer;J)V
  */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2FIZJ(
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2FIZLjava_nio_IntBuffer_2J
+(
     JNIEnv *env,
     jclass ,
     jlong pointer,
     jobject start_position,
     jobject start_direction,
+    jobject end_iteration,
     jobject scale,
     jfloat minimum_brightness,
     jint iterations,
     jboolean trace_paths,
+    jobject trace,
     jlong opt_pt)
 {
-    try
-    {
-        RaytraceSceneBase *sceneb = reinterpret_cast<RaytraceSceneBase*>(pointer);
-        
-        RayTraceRayInstance<float> ray_instance;
-        std::vector<pos_t> end_position_vec;
-        std::vector<float> end_direction_vec;
-        std::vector<brightness_t> remaining_light_vec;
-        std::vector<pos_t> trace_vec;
-        
-        jni_to_vec(*env, start_position, ray_instance._start_position, UTIL::identity_function, (jint)0);
-        jni_to_vec(*env, start_direction, ray_instance._start_direction, UTIL::identity_function, (jfloat)0);
-        jni_to_vec(*env, scale, ray_instance._scale, UTIL::identity_function, (jfloat)0);
-        ray_instance._minimum_brightness = minimum_brightness;
-        ray_instance._iterations = iterations;
-        ray_instance._trace_path = trace_paths;
-        ray_instance._normalize_length = true;
-        
-        Options &opt = *reinterpret_cast<Options *>(opt_pt);
-        if (opt._write_instance)
-        {
-            std::ofstream debug_out("debug_ray_instance");
-            SERIALIZE::write_value(debug_out, ray_instance);
-            debug_out.close();
-        }
-        
-        {
-            RaytraceScene<ior_t, iorlog_t, diff_t> *scene = dynamic_cast<RaytraceScene<ior_t, iorlog_t, diff_t>*>(sceneb);
-            if (scene != nullptr)
-            {
-                scene->trace_rays(
-                    RayTraceRayInstanceRef<float>(ray_instance),
-                    end_position_vec,
-                    end_direction_vec,
-                    remaining_light_vec,
-                    trace_vec,
-                    opt);
-                goto success;
-            }
-        }
-        {
-            RaytraceScene<float, float, float> *scene = dynamic_cast<RaytraceScene<float, float, float>*>(sceneb);
-            if (scene != nullptr)
-            {
-                scene->trace_rays(
-                    RayTraceRayInstanceRef<float>(ray_instance),
-                    end_position_vec,
-                    end_direction_vec,
-                    remaining_light_vec,
-                    trace_vec,
-                    opt);
-                goto success;
-            }
-        }
-        std::cout << "Warning, can't parse input Scene" << std::endl;
-        success:
-        vec_to_jni(*env, start_position, end_position_vec, UTIL::identity_function, (jint)0);
-        vec_to_jni(*env, start_direction, end_direction_vec, UTIL::identity_function, (jfloat)0);
-    }catch(std::exception const & e)
-    {
-        env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());
-    }
+    java_trace_ray_impl<float>(env, pointer, start_position, start_direction, end_iteration, scale, minimum_brightness, iterations, trace_paths, trace, opt_pt);
 }
 
 /*
@@ -389,59 +378,6 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_set_1option_1value
       }
   }
 
-  
-/*
- * Class:     data_raytrace_OpticalVolumeObject
- * Method:    trace_rays
- * Signature: (Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;FIZ)I
- */
-
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_rays(
-    JNIEnv *env,
-    jobject ,
-    jobject bounds,
-    jobject ior,
-    jobject translucency,
-    jobject start_position,
-    jobject start_direction,
-    jobject scale,
-    jfloat minimum_brightness,
-    jint iterations,
-    jboolean trace_paths,
-    jlong opt_pt)
-{
-    try{
-        RaytraceInstance<ior_t, dir_t> inst;
-        jni_to_vec(*env, bounds, inst._bound_vec, UTIL::identity_function, (jint)0);
-        print_elements(std::cout << "bounds:", inst._bound_vec.begin(), inst._bound_vec.end(), ' ') << std::endl;
-        jni_to_vec(*env, ior, inst._ior, UTIL::identity_function, (jint)0);
-        jni_to_vec(*env, translucency, inst._translucency, UTIL::identity_function, (jint)0);
-        jni_to_vec(*env, start_position, inst._start_position, UTIL::identity_function, (jint)0);
-        jni_to_vec(*env, start_direction, inst._start_direction, UTIL::identity_function, (jint)0);
-        jni_to_vec(*env, scale, inst._scale, UTIL::identity_function, (jfloat)0);
-        inst._minimum_brightness = minimum_brightness;
-        inst._iterations = iterations;
-        inst._trace_path = trace_paths;
-        
-        std::ofstream debug_out("debug_raytrace_instance");
-        SERIALIZE::write_value(debug_out, inst);
-        debug_out.close();
-
-        Options &opt = *reinterpret_cast<Options*>(opt_pt);
-        std::vector<pos_t> end_position;
-        std::vector<dir_t> end_direction;
-        std::vector<brightness_t> remaining_light;
-        std::vector<pos_t> trace;
-        trace_rays<ior_t, iorlog_t, diff_t, dir_t>(inst, end_position, end_direction, remaining_light, trace, opt);
-        
-        vec_to_jni(*env, start_position, end_position, UTIL::identity_function, (jint)0);
-        vec_to_jni(*env, start_direction, end_direction, UTIL::identity_function, (jint)0);
-    }catch(std::exception const & e)
-    {
-        env->ThrowNew(env->FindClass("java/lang/Exception"), e.what());
-    }
-
-}
 #ifdef __cplusplus
 }
 #endif

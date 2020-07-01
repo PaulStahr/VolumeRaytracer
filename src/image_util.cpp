@@ -424,12 +424,6 @@ static const stamp_t_struct<W,3> standart_3d_stamp(std::vector<W>(
       { -14,0,14, -47,0, 47,-14,0,14,
         -47,0,47,-162,0,162,-47,0,47,
         -14,0,14, -47,0, 47,-14,0,14}), std::array<size_t,3>({3,3,3}));
-
-    /*std::vector<int32_t> stamp({
-        -1,0,1,-2,0,2,-1,0,1,
-        -2,0,2,-4,0,4,-2,0,2,
-        -1,0,1,-2,0,2,-1,0,1
-    });*/
 template <typename W>
 static const stamp_t_struct<W,2> standart_2d_stamp(std::vector<W>({-47,0,47,-162,0,162,-47,0,47}), std::array<size_t,2>({3,3}));
 
@@ -656,6 +650,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         std::vector<DirType> start_direction,
         std::vector<pos_t> & end_position,
         std::vector<DirType> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         std::vector<float> const & invscale,
@@ -744,6 +739,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
 
     end_position.resize(num_rays * dim);
     end_direction.resize(num_rays * dim);
+    end_iteration.resize(num_rays);
     remaining_light.resize(num_rays);
 
 #ifndef NDEBUG            
@@ -755,7 +751,19 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         print_elements(std::cout << "start_position: ", start_position.begin(), start_position.end(), ' ') << std::endl;
         print_elements(std::cout << "start_direction:", start_direction.begin(), start_direction.end(), ' ') << std::endl;
     }
-     _calculation_object->trace_rays_cu(start_position, start_direction, end_position, end_direction, remaining_light, path, invscale, minimum_brightness, iterations, trace_path, opt);
+     _calculation_object->trace_rays_cu(
+         start_position,
+         start_direction,
+         end_position,
+         end_direction,
+         end_iteration,
+         remaining_light,
+         path,
+         invscale,
+         minimum_brightness,
+         iterations,
+         trace_path,
+         opt);
     if (opt._loglevel < -2)
     {
         print_elements(std::cout << "end_position: ", end_position.begin(), end_position.end(), ' ') << std::endl;
@@ -775,6 +783,7 @@ void trace_rays(
     std::vector<DirType> start_direction,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     std::vector<float> const & invscale,
@@ -784,7 +793,20 @@ void trace_rays(
     bool normalize_length,
     Options const & opt)
 {
-    RaytraceScene<IorType, IorLogType, DiffType>(bound_vec, ior, translucency, opt).trace_rays(start_position, start_direction, end_position, end_direction, remaining_light, path, invscale, minimum_brightness, iterations, trace_path, normalize_length, opt);
+    RaytraceScene<IorType, IorLogType, DiffType>(bound_vec, ior, translucency, opt).trace_rays(
+        start_position,
+        start_direction,
+        end_position,
+        end_direction,
+        end_iteration,
+        remaining_light,
+        path,
+        invscale,
+        minimum_brightness,
+        iterations,
+        trace_path,
+        normalize_length,
+        opt);
 }
 
 template <typename IorType, typename IorLogType, typename DiffType>
@@ -793,6 +815,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         RayTraceRayInstanceRef<DirType> const & ref,
         std::vector<pos_t> & end_position,
         std::vector<DirType> & end_direction,
+        std::vector<uint32_t> & end_iterations,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         Options const & opt)
@@ -802,6 +825,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         ref._start_direction,
         end_position,
         end_direction,
+        end_iterations,
         remaining_light,
         path,
         ref._invscale,
@@ -818,6 +842,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
     RayTraceRayInstance<DirType> const & ref,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt)
@@ -826,6 +851,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         RayTraceRayInstanceRef<DirType>(const_cast<RayTraceRayInstance<DirType> &>(ref)),
         end_position,
         end_direction,
+        end_iteration,
         remaining_light,
         path,
         opt);               
@@ -837,6 +863,7 @@ void trace_rays(
     RaytraceInstanceRef<IorType, DirType> const & inst,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt)
@@ -849,6 +876,7 @@ void trace_rays(
         inst._start_direction,
         end_position,
         end_direction,
+        end_iteration,
         remaining_light,
         path,
         inst._invscale,
@@ -864,6 +892,7 @@ void trace_rays(
     RaytraceInstance<IorType, DirType> const & inst,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt)
@@ -872,6 +901,7 @@ void trace_rays(
         RaytraceInstanceRef<IorType, DirType>(const_cast<RaytraceInstance<IorType, DirType> & >(inst)),
         end_position,
         end_direction,
+        end_iteration,
         remaining_light,
         path,
         opt);
@@ -881,6 +911,7 @@ template void trace_rays<ior_t, iorlog_t, diff_t, dir_t>(
     RaytraceInstance<ior_t, dir_t> const & inst,
     std::vector<pos_t> & end_position,
     std::vector<dir_t> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt);
@@ -890,6 +921,7 @@ template void trace_rays<float, float, float, float>(
     RaytraceInstance<float, float> const & inst,
     std::vector<pos_t> & end_position,
     std::vector<float> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt);
@@ -906,6 +938,7 @@ template void RaytraceScene<float, float, float>::trace_rays<float>(
     RayTraceRayInstanceRef<float> const & ref,
     std::vector<pos_t> & end_position,
     std::vector<float> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt);
@@ -914,6 +947,7 @@ template void RaytraceScene<ior_t, iorlog_t, diff_t>::trace_rays<dir_t>(
     RayTraceRayInstanceRef<dir_t> const & ref,
     std::vector<pos_t> & end_position,
     std::vector<dir_t> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt);

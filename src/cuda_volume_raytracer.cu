@@ -455,7 +455,6 @@ inline __host__ __device__ void trace_ray_function(
             brightness -= min(static_cast<brightness_t>(brightness), static_cast<translucency_t>(0xFFFFFFFF-translucency[get_index(bounds, pos)]));
             if (brightness < minimum_brightness)
             {
-                //printf("b=%u<%u=mb", brightness, minimum_brightness);
                 break;
             }
         }
@@ -466,13 +465,14 @@ inline __host__ __device__ void trace_ray_function(
         }
         interpolation *= invscale;//TODO can be precalculated
         direction += interpolation;
-        float ilen = 0x42000000p0f / dot(direction, direction);//TODO Constant calculated by scaling test find mathematical description
+        float ilen = 0x42000000p0f / dot(direction, direction);
         pos += __float2int_rn2(direction * invscale * ilen);
         path[iterations] = pos;
     }
+    ++iterations;
+    raydata->_iterations = iterations;
     if (!std::is_same<P,DummyArray>::value)
     {
-        ++iterations;
         while (iterations --> 0)
         {
             path[iterations] = pos;
@@ -493,7 +493,6 @@ inline __host__ __device__ void trace_ray_function(
     {
         raydata->_remaining_brightness = brightness;
     }
-    raydata->_iterations = iterations;
 }
 
 template <typename P, typename T, typename B, typename DiffType, typename DirType, uint8_t dim>
@@ -625,6 +624,7 @@ void read_struct(
     std::vector<pos_t> & position,
     std::vector<DirType> & direction,
     std::vector<brightness_t> & remaining_light,
+    std::vector<uint32_t> & ray_iterations,
     std::vector<raydata_t<dim, DirType> > const & raydata)
 {
     bool warn = false;
@@ -635,7 +635,8 @@ void read_struct(
         reinterpret_cast<cuda_tuple<pos_t, dim> * >(position.data())[i] = current._position;
         reinterpret_cast<cuda_tuple<DirType, dim> * >(direction.data())[i] = current._direction;
         remaining_light[i] = current._remaining_brightness;
-        if (current._iterations == 0 || current._iterations == std::numeric_limits<uint32_t>::max())
+        ray_iterations[i] = current._iterations;
+        if (current._iterations == 0)
         {
             warn = true;
         }
@@ -662,6 +663,7 @@ size_t inline sizeofvec(std::vector<T> const & vec)
     std::vector<dir_t> const & start_direction,
     std::vector<pos_t> & end_position,
     std::vector<dir_t> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     std::vector<float> const & invscale_vec,
@@ -736,7 +738,7 @@ size_t inline sizeofvec(std::vector<T> const & vec)
     }
 
     HANDLE_ERROR(cudaMemcpyAsync(ray_data.data(),    raydata_cuda,    sizeofvec(ray_data), cudaMemcpyDeviceToHost));
-    read_struct<2>(end_position, end_direction, remaining_light, ray_data);
+    read_struct<2>(end_position, end_direction, remaining_light, ray_iterations, ray_data);
     if (trace_paths)
     {
         HANDLE_ERROR(cudaMemcpyAsync(path.data(),            path_cuda,            path.size()            * sizeof(pos_t),  cudaMemcpyDeviceToHost));
@@ -815,6 +817,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu(
     std::vector<DirType> const & start_direction,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     std::vector<float> const & invscale_vec,
@@ -829,6 +832,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu(
                 start_direction,
                 end_position,
                 end_direction,
+                end_iteration,
                 remaining_light,
                 path,
                 invscale_vec,
@@ -843,6 +847,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu(
                 start_direction,
                 end_position,
                 end_direction,
+                end_iteration,
                 remaining_light,
                 path,
                 invscale_vec,
@@ -864,6 +869,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     std::vector<DirType>        const & start_direction,
     std::vector<pos_t> &        end_position,
     std::vector<DirType> &      end_direction,
+    std::vector<uint32_t> &     end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> &        path,
     std::vector<float> const &  invscale_vec,
@@ -933,7 +939,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
             {
                 trace_rays_gpu<<<block_count, threads_per_block>>>(
                     _diff_interleaved_cuda[thread_num],
-                    _translucency_cuda[thread_num],
+                    DummyArray(),//_translucency_cuda[thread_num],
                     output_sizes,
                     invscale,
                     raydata_cuda[thread_num],
@@ -1002,7 +1008,11 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     {
         std::cout << "cpu: " << count_cpu << " gpu: " << count_gpu << std::endl;
     }
-    read_struct<dim>(end_position, end_direction, remaining_light, ray_data);
+    read_struct<dim>(end_position, end_direction, remaining_light, end_iteration, ray_data);
+    for (size_t i = 0; i < end_iteration.size(); ++i)
+    {
+        end_iteration[i] = iterations - end_iteration[i];
+    }
     for (size_t i = 0; i < cuda_device_count; ++i)
     {
         HANDLE_ERROR(cudaSetDevice(i));
@@ -1042,6 +1052,7 @@ template void TraceRaysCu<diff_t>::trace_rays_cu<dir_t>(
         std::vector<dir_t> const & start_direction,
         std::vector<pos_t> & end_position,
         std::vector<dir_t> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         std::vector<float> const & invscale_vec,
@@ -1055,6 +1066,7 @@ template void TraceRaysCu<float>::trace_rays_cu<dir_t>(
         std::vector<dir_t> const & start_direction,
         std::vector<pos_t> & end_position,
         std::vector<dir_t> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         std::vector<float> const & invscale_vec,
@@ -1068,6 +1080,7 @@ template void TraceRaysCu<diff_t>::trace_rays_cu<float>(
         std::vector<float> const & start_direction,
         std::vector<pos_t> & end_position,
         std::vector<float> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         std::vector<float> const & invscale_vec,
@@ -1081,6 +1094,7 @@ template void TraceRaysCu<float>::trace_rays_cu<float>(
         std::vector<float> const & start_direction,
         std::vector<pos_t> & end_position,
         std::vector<float> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         std::vector<float> const & invscale_vec,

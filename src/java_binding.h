@@ -78,38 +78,22 @@ JNIEXPORT jboolean JNICALL Java_data_raytrace_OpticalVolumeObject_get_1option_1v
  */
 JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_set_1option_1valueb
   (JNIEnv *, jclass, jlong, jlong, jboolean);
-  
-/*
- * Class:     data_raytrace_OpticalVolumeObject
- * Method:    trace_rays
- * Signature: (JLjava/nio/IntBuffer;Ljava/nio/ShortBuffer;Ljava/nio/FloatBuffer;FIZJ)V
- */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_FloatBuffer_2FIZJ
-  (JNIEnv *, jclass, jlong, jobject, jobject, jobject, jfloat, jint, jboolean, jlong);
 
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    trace_rays
- * Signature: (JLjava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;FIZJ)V
+ * Signature: (JLjava/nio/IntBuffer;Ljava/nio/ShortBuffer;Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;FIZLjava/nio/IntBuffer;J)V
  */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2FIZJ
-  (JNIEnv *, jclass, jlong, jobject, jobject, jobject, jfloat, jint, jboolean, jlong);
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2FIZLjava_nio_IntBuffer_2J
+  (JNIEnv *, jclass, jlong, jobject, jobject, jobject, jobject, jfloat, jint, jboolean, jobject, jlong);
 
 /*
  * Class:     data_raytrace_OpticalVolumeObject
  * Method:    trace_rays
- * Signature: (Ljava/nio/IntBuffer;Ljava/nio/IntBuffer;Ljava/nio/IntBuffer;Ljava/nio/IntBuffer;Ljava/nio/ShortBuffer;Ljava/nio/FloatBuffer;FIZ)V
+ * Signature: (JLjava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;FIZLjava/nio/IntBuffer;J)V
  */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_ShortBuffer_2Ljava_nio_FloatBuffer_2FIZ
-  (JNIEnv *, jclass, jobject, jobject, jobject, jobject, jobject, jobject, jfloat, jint, jboolean);
-
-/*
- * Class:     data_raytrace_OpticalVolumeObject
- * Method:    trace_rays
- * Signature: (Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;Ljava/nio/IntBuffer;Ljava/nio/FloatBuffer;Ljava/nio/FloatBuffer;FIZ)V
- */
-JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_FloatBuffer_2FIZ
-  (JNIEnv *, jclass, jobject, jobject, jobject, jobject, jobject, jobject, jfloat, jint, jboolean);
+JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_trace_1rays__JLjava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2Ljava_nio_IntBuffer_2Ljava_nio_FloatBuffer_2FIZLjava_nio_IntBuffer_2J
+  (JNIEnv *, jclass, jlong, jobject, jobject, jobject, jobject, jfloat, jint, jboolean, jobject, jlong);
 
 #ifdef __cplusplus
 }

@@ -160,6 +160,7 @@ public:
         std::vector<DirType> start_direction,
         std::vector<pos_t> & end_position,
         std::vector<DirType> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         std::vector<float> const & scale,
@@ -174,6 +175,7 @@ public:
         RayTraceRayInstanceRef<DirType> const & ref,
         std::vector<pos_t> & end_position,
         std::vector<DirType> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         Options const & opt);
@@ -183,6 +185,7 @@ public:
         RayTraceRayInstance<DirType> const & ref,
         std::vector<pos_t> & end_position,
         std::vector<DirType> & end_direction,
+        std::vector<uint32_t> & end_iteration,
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         Options const & opt);
@@ -437,6 +440,7 @@ void trace_rays(
     std::vector<DirType> start_direction,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     std::vector<float> const & scale,
@@ -451,6 +455,7 @@ void trace_rays(
     RaytraceInstanceRef<IorType, DirType> const & inst,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt);
@@ -460,6 +465,7 @@ void trace_rays(
     RaytraceInstance<IorType, DirType> const & inst,
     std::vector<pos_t> & end_position,
     std::vector<DirType> & end_direction,
+    std::vector<uint32_t> & end_iteration,
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> & path,
     Options const & opt);

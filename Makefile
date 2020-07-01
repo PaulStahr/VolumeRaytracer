@@ -41,8 +41,8 @@ $(BUILT)/python_binding.o: $(SRC)/python_binding.cpp
 $(BUILT)/raytrace_test.o: $(SRC)/raytrace_test.cpp
 	g++-7 $(SRC)/raytrace_test.cpp -c $(CFLAGS) -o $(BUILT)/raytrace_test.o -fPIC
 
-$(BUILT)/java_binding.o: $(SRC)/java_binding.cpp
-	g++-7 $(SRC)/java_binding.cpp -c $(CFLAGS) -o $(BUILT)/java_binding.o -fPIC -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux" 
+$(BUILT)/java_binding.o: $(SRC)/java_binding.cpp $(SRC)/java_binding.h
+	g++-7 $(SRC)/java_binding.cpp -c $(CFLAGS) -o $(BUILT)/java_binding.o -fPIC -I"${JAVA_HOME}/include" -I"${JAVA_HOME}/include/linux"
 
 cuda_raytrace$(PT_BIN): $(BUILT)/image_io.o $(BUILT)/image_util.o $(BUILT)/raytracer.o $(BUILT)/serialize.o $(BUILT)/python_binding.o $(BUILT)/io_util.o $(BUILT)/serialize.o $(BUILT)/util.o
 	g++-7 $(CFLAGS) $(BUILT)/image_io.o $(BUILT)/image_util.o $(BUILT)/raytracer.o $(BUILT)/serialize.o $(BUILT)/util.o $(BUILT)/io_util.o $(BUILT)/python_binding.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -shared -fPIC -o cuda_raytrace$(PT_BIN) -I/usr/include/python3.6m/ ${LFLAGS}
