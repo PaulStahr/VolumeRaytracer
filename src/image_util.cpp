@@ -660,7 +660,6 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
         bool normalize_length,
         Options const & opt)
 {
-    std::cout << _calculation_object->_output_sizes.size() << std::endl;
     size_t dim = _bound_vec.size();
     
     size_t num_rays = start_position.size() / dim;

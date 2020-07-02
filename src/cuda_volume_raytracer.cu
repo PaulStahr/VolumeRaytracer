@@ -897,7 +897,6 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     }
     cuda_device_count = std::min(cuda_device_count, (num_rays + maximum_rays_per_kernel - 1) / maximum_rays_per_kernel);
     std::vector<cuda_tuple<pos_t,dim> *> path_cuda(cuda_device_count);
-    std::cout << "allocate " << cuda_device_count << std::endl;
     std::vector<raydata_t<dim, DirType>* > raydata_cuda(cuda_device_count);
     size_t cpu_device_count = omp_get_max_threads() - cuda_device_count;
     if (cuda_device_count != 0)
@@ -933,7 +932,6 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                     HANDLE_ERROR(cudaMalloc(&path_cuda[thread_num],            std::min(ray_data.size(), maximum_rays_per_kernel) * iterations * dim * sizeof(pos_t)));
                 }
             }
-            std::cout << thread_num << " gpu: " <<  num_kernel_rays << std::endl;
             HANDLE_ERROR(cudaMemcpyAsync(raydata_cuda[thread_num],ray_data.data() + i,     num_kernel_rays      * sizeof(raydata_t<dim, DirType>), cudaMemcpyHostToDevice));
             if (trace_paths)
             {
@@ -971,7 +969,6 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
         }
         else
         {
-            std::cout << thread_num << " cpu: " <<  num_kernel_rays << std::endl;
             if (trace_paths)
             {
                 trace_rays_cpu(
