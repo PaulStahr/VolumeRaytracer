@@ -189,6 +189,11 @@ public:
         std::vector<brightness_t> & remaining_light,
         std::vector<pos_t> & path,
         Options const & opt);
+    
+    ~RaytraceScene()
+    {
+        delete _calculation_object;
+    }
 };
 
 struct RaytraceInstanceBase{};

@@ -607,7 +607,7 @@ RaytraceScene<float, float, float>::RaytraceScene(
         try{
             if (_ior[i] <= 0)
             {
-                throw std::runtime_error("refraction-index underflow: " +std::to_string(_ior[i])+ "<0");
+                throw std::runtime_error("refraction-index underflow: " +std::to_string(_ior[i])+ "<=0");
             }
             _ior_log[i] = log(_ior[i])* 0x420000;
         }catch(...) {
