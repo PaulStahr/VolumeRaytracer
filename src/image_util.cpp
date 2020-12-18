@@ -772,6 +772,11 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
     std::transform(end_position.begin(), end_position.end(), end_position.begin(), UTIL::plus<pos_t>(0x10000));
 }
 
+template <typename IorType, typename IorLogType, typename DiffType>
+RaytraceScene<IorType, IorLogType, DiffType>::~RaytraceScene()
+{
+    delete _calculation_object;
+}
 
 template <typename IorType, typename IorLogType, typename DiffType, typename DirType>
 void trace_rays(

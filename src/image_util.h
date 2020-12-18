@@ -190,10 +190,7 @@ public:
         std::vector<pos_t> & path,
         Options const & opt);
     
-    ~RaytraceScene()
-    {
-        delete _calculation_object;
-    }
+    ~RaytraceScene();
 };
 
 struct RaytraceInstanceBase{};
