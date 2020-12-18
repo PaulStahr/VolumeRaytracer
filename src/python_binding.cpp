@@ -33,9 +33,17 @@ std::tuple<std::vector<pos_t>,std::vector<dir_t>, std::vector<brightness_t>, std
     SERIALIZE::write_value(debug_out, inst);
     debug_out.close();
     
-    std::tuple<std::vector<pos_t>,std::vector<dir_t>, std::vector<brightness_t>, std::vector<pos_t> > erg;
-    trace_rays<ior_t, iorlog_t, diff_t, dir_t>(inst, std::get<0>(erg), std::get<1>(erg), std::get<2>(erg), std::get<3>(erg), Options());
-    return erg;
+    std::tuple<std::vector<pos_t>,std::vector<dir_t>, std::vector<brightness_t>, std::vector<pos_t> > res;
+    std::vector<pos_t> path;
+    trace_rays<ior_t, iorlog_t, diff_t, dir_t>(
+        inst,
+        std::get<0>(res),
+        std::get<1>(res),
+        std::get<2>(res),
+        std::get<3>(res),
+        path,
+        Options());
+    return res;
 }
 
 PYBIND11_MODULE(cuda_raytrace, m) {
