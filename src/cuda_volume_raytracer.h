@@ -57,6 +57,8 @@ class TraceRaysCu
     std::vector<uint32_t *> _translucency_cuda;
     std::vector<DiffType> _diff_interleaved;
     std::vector<DiffType *>_diff_interleaved_cuda;
+    void *_cudaTexture;
+    void *_tex;
     
     public:
     std::vector<uint16_t> _output_sizes;
