@@ -32,8 +32,7 @@ std::ostream & write_value(std::ostream & out, T const & value)
 template <typename InputIterator>
 std::ostream & write_values(std::ostream & out, InputIterator begin, InputIterator end)
 {
-    size_t size = std::distance(begin, end);
-    write_value(out, size);
+    write_value(out, static_cast<size_t>(std::distance(begin, end)));
     for (; begin != end; ++begin)
     {
         write_value(out, *begin);

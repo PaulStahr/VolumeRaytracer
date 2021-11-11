@@ -67,6 +67,8 @@ struct RayTraceSceneInstance
     RayTraceSceneInstance() {}
 
     RayTraceSceneInstance(RayTraceSceneInstanceRef<IorType> const & ref) : _bound_vec(ref._bound_vec), _ior(ref._ior), _translucency(ref._translucency){}
+
+    bool operator==(RayTraceSceneInstance const & inst) const{return _bound_vec == inst._bound_vec && _ior == inst._ior && _translucency == inst._translucency;}
 };
 
 template <typename DirType>

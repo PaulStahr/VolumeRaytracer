@@ -236,7 +236,6 @@ void swap_dimensions(
     permutate_dimensions(input, output, bounds, permutation);
 }
 
-
 template <typename T,typename V, typename W>
 struct convolution
 {
