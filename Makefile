@@ -36,7 +36,7 @@ SRC := src
 BUILD := build
 G++ := g++-7
 CGCC := gcc-8
-CC := g++-8
+CC := g++
 
 #debug: CCFLAGS += -DDEBUG -g
 
@@ -68,19 +68,19 @@ $(BUILD)/python_binding.o: $(SRC)/python_binding.cpp
 	$(G++) $(SRC)/python_binding.cpp -c $(CFLAGS) -o $(BUILD)/python_binding.o -fPIC `python3 -m pybind11 --includes`
 
 $(BUILD)/java_binding.o: $(SRC)/java_binding.cpp $(SRC)/java_binding.h
-	$(G++) $(SRC)/java_binding.cpp -c $(CFLAGS) -o $(BUILD)/java_binding.o -fPIC -I$(jni_library) -I$(jni_library)/linux
+	$(CC) $(SRC)/java_binding.cpp -c $(CFLAGS) -o $(BUILD)/java_binding.o -fPIC -I$(jni_library) -I$(jni_library)/linux
 
 cuda_raytrace$(PT_BIN): $(BUILD)/image_io.o $(BUILD)/image_util.o $(BUILD)/raytracer.o $(BUILD)/serialize.o $(BUILD)/python_binding.o $(BUILD)/io_util.o $(BUILD)/serialize.o $(BUILD)/util.o
 	$(G++) $(CFLAGS) $(BUILD)/image_io.o $(BUILD)/image_util.o $(BUILD)/raytracer.o $(BUILD)/serialize.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/python_binding.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -shared -fPIC -o cuda_raytrace$(PT_BIN) -I/usr/include/python3.6m/ $(LFLAGS)
 
 cuda_raytrace_java.so:  $(BUILD)/raytracer.o $(BUILD)/java_binding.o
-	$(G++) $(CFLAGS) -lc $(BUILD)/image_io.o $(BUILD)/image_util.o $(BUILD)/raytracer.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/serialize.o $(BUILD)/java_binding.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -shared -fPIC -o cuda_raytrace_java.so -I$(jni_library) -I$(jni_library)/linux $(LFLAGS)
+	$(CC) $(CFLAGS) -lc $(BUILD)/image_io.o $(BUILD)/image_util.o $(BUILD)/raytracer.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/serialize.o $(BUILD)/java_binding.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -shared -fPIC -o cuda_raytrace_java.so -I$(jni_library) -I$(jni_library)/linux $(LFLAGS)
 
 cuda_test: $(BUILD)/image_util.o $(BUILD)/image_io.o $(BUILD)/raytracer.o $(BUILD)/raytrace_test.o $(BUILD)/io_util.o $(BUILD)/serialize.o $(BUILD)/util.o
-	$(G++) $(CFLAGS) $(BUILD)/image_util.o $(BUILD)/image_io.o $(BUILD)/raytracer.o $(BUILD)/serialize.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/raytrace_test.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -fPIC -o cuda_test $(LFLAGS)
+	$(CC) $(CFLAGS) $(BUILD)/image_util.o $(BUILD)/image_io.o $(BUILD)/raytracer.o $(BUILD)/serialize.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/raytrace_test.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -fPIC -o cuda_test $(LFLAGS)
 
 cuda_unit_test: $(BUILD)/raytracer.o $(BUILD)/test_main.o
-	$(G++) $(CFLAGS) $(BUILD)/image_util.o $(BUILD)/image_io.o $(BUILD)/raytracer.o $(BUILD)/serialize.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/test_main.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -fPIC -lboost_unit_test_framework -no-pie $(LFLAGS) -o cuda_unit_test
+	$(CC) $(CFLAGS) $(BUILD)/image_util.o $(BUILD)/image_io.o $(BUILD)/raytracer.o $(BUILD)/serialize.o $(BUILD)/util.o $(BUILD)/io_util.o $(BUILD)/test_main.o -lcudart  -L/usr/local/cuda-8.0/lib64/ -fPIC -lboost_unit_test_framework -no-pie $(LFLAGS) -o cuda_unit_test
 
 test: cuda_unit_test
 	valgrind ./cuda_unit_test
