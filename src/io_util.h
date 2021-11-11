@@ -213,7 +213,7 @@ struct string_to_struct : std::unary_function<std::string, T>
 };
 
 template<typename T>
-T string_to_struct<T>::operator()(const std::__cxx11::string& str) const
+T string_to_struct<T>::operator()(const std::string& str) const
 {
     T erg;
     std::stringstream ss(str);
