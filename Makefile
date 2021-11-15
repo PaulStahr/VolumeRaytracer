@@ -29,7 +29,7 @@ endif
 
 PT_BIN:= $(shell python3-config '--extension-suffix')
 CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++14 -lstdc++fs -mavx2 -fPIC
-LFLAGS:= -lstdc++fs -lpng -ljpeg
+LFLAGS:= -lstdc++fs -lpng -ljpeg -fopenmp
 LCFLAGS:= -lcuda -lcudart 
 CFLAGS += -DNDEBUG
 CLIBS:= -lcudart  -L/usr/local/cuda-8.0/lib64/
@@ -62,39 +62,39 @@ $(BUILD)/test_main.o: $(SRC)/test_main.cpp $(SRC)/test_main.h $(SRC)/serialize_t
 	$(CC) -c $(CFLAGS) $(DFLAGS) $(LDFLAGS) $(SRC)/test_main.cpp -o $@
 
 $(BUILD)/python_binding.o: $(SRC)/python_binding.cpp
-	$(G++) $(SRC)/python_binding.cpp -c $(CFLAGS) -o $(BUILD)/python_binding.o -fPIC `python3 -m pybind11 --includes`
+	$(G++) $(SRC)/python_binding.cpp -c $(CFLAGS) -o $(BUILD)/python_binding.o `python3 -m pybind11 --includes`
 
 $(BUILD)/java_binding.o: $(SRC)/java_binding.cpp $(SRC)/java_binding.h
-	$(CC) $(SRC)/java_binding.cpp -c $(CFLAGS) -o $(BUILD)/java_binding.o -fPIC -I"${JAVA_HOME}" -I"${JAVA_HOME}/linux"
+	$(CC) $(SRC)/java_binding.cpp -c $(CFLAGS) -o $(BUILD)/java_binding.o -I"${JAVA_HOME}" -I"${JAVA_HOME}/linux"
 
 raytracer$(PT_BIN): $(OFILES) $(BUILD)/raytracer.o $(BUILD)/python_binding.o
-	$(G++) $(CFLAGS) $(OFILES) $(BUILD)/raytracer.o $(BUILD)/python_binding.o -shared -fPIC -o $@ -I/usr/include/python3.6m/ $(LFLAGS)
+	$(G++) $(OFILES) $(BUILD)/raytracer.o $(BUILD)/python_binding.o -shared -o $@ -I/usr/include/python3.6m/ $(LFLAGS)
 
 raytracer_cuda$(PT_BIN): $(OFILES) $(BUILD)/raytracer.o $(BUILD)/python_binding.o
-	$(G++) $(CFLAGS) $(OFILES) $(BUILD)/raytracer.o $(BUILD)/python_binding.o $(CLIBS) -shared -fPIC -o $@ -I/usr/include/python3.6m/ $(LFLAGS)
+	$(G++) $(OFILES) $(BUILD)/raytracer.o $(BUILD)/python_binding.o $(CLIBS) -shared -o $@ -I/usr/include/python3.6m/ $(LFLAGS)
 
 raytracer_java.so: $(OFILES) $(BUILD)/raytracer.o $(BUILD)/java_binding.o
-	$(CC) $(CFLAGS) -lc $(OFILES) $(BUILD)/raytracer.o $(BUILD)/java_binding.o -shared -fPIC -o $@ $(LFLAGS)
+	$(CC) -lc $(OFILES) $(BUILD)/raytracer.o $(BUILD)/java_binding.o -shared -o $@ $(LFLAGS)
 
 raytracer_java_cuda.so: $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/java_binding.o
-	$(CC) $(CFLAGS) -lc $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/java_binding.o $(CLIBS) -shared -fPIC -o raytrace_java_cuda.so $(LFLAGS)
+	$(CC) -lc $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/java_binding.o $(CLIBS) -shared -o raytrace_java_cuda.so $(LFLAGS)
 
 raytracer_test: $(OFILES) $(BUILD)/raytracer.o $(BUILD)/raytrace_test.o
-	$(CC) $^ -fPIC -o $@ $(LFLAGS)
+	$(CC) $^ -o $@ $(LFLAGS)
 
 raytracer_test_cuda: $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/raytrace_test.o
-	$(CC) $^ $(CLIBS) -fPIC -o $@ $(LFLAGS) $(LCFLAGS) -fopenmp
+	$(CC) $^ $(CLIBS) -o $@ $(LFLAGS) $(LCFLAGS)
 
 raytracer_unit_test: $(OFILES) $(BUILD)/raytracer.o $(BUILD)/test_main.o
-	$(CC) $(CFLAGS) $^ -fPIC -lboost_unit_test_framework -no-pie $(LFLAGS) -o $@
+	$(CC) $^ -lboost_unit_test_framework -no-pie $(LFLAGS) -o $@
 
 raytracer_unit_test_cuda: $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/test_main.o
-	$(CC) $(CFLAGS) $^ $(CLIBS) -fPIC -lboost_unit_test_framework -no-pie $(LFLAGS) $(LCFLAGS) -o $@
+	$(CC) $^ $(CLIBS) -lboost_unit_test_framework -no-pie $(LFLAGS) $(LCFLAGS) -o $@
 
 test: raytracer_unit_test
 	valgrind ./raytracer_unit_test
 
-raytracer_test: raytracer_unit_test_cuda
+test_cuda: raytracer_unit_test_cuda
 	valgrind ./raytracer_unit_test_cuda	
 
 scaling_test: raytracer_test
@@ -105,8 +105,9 @@ unit-test: qsopt_bin_test
 
 all: raytracer$(PT_BIN) raytracer_cuda$(PT_BIN) raytracer_unit_test raytracer_unit_test_cuda raytracer_test raytracer_test_cuda raytracer_java.so raytracer_java_cuda.so
 
-install: cuda_raytrace_java.so
-	cp cuda_raytrace_java.so /usr/lib/cuda_raytrace_java.so
+install: raytracer_java.so raytracer_java_cuda.so
+	cp raytracer_java.so /usr/lib/raytracer_java.so
+	cp raytracer_java_cuda.so /usr/lib/raytracer_java_cuda.so
 
 clean:
 	rm -f $(BUILD)/*.o
