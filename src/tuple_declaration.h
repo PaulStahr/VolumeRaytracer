@@ -2,6 +2,9 @@
 #define tuple_declaration
 
 #ifdef NCUDA
+#define __host__
+#define __device__
+#define __global__
 #define CUDAONLY(a)
 #define NCUDAONLY(a) (a)
 #else
