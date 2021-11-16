@@ -30,7 +30,7 @@ endif
 PT_BIN:= $(shell python3-config '--extension-suffix')
 CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++14 -lstdc++fs -mavx2 -fPIC
 LFLAGS:= -lstdc++fs -lpng -ljpeg -fopenmp
-LCFLAGS:= -lcuda -lcudart 
+LCFLAGS:= -lcuda -lcudart
 CFLAGS += -DNDEBUG
 CLIBS:= -lcudart  -L/usr/local/cuda-8.0/lib64/
 SRC := src
@@ -58,7 +58,7 @@ $(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytrac
 $(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h
 	nvcc -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v -Xcompiler -fPIC -g -std=c++11 -Xcompiler -fopenmp -Xcompiler -msse -Xcompiler -msse2 -DNDEBUG -Xcompiler -mavx2
 
-$(BUILD)/test_main.o: $(SRC)/test_main.cpp $(SRC)/test_main.h $(SRC)/serialize_test.h
+$(BUILD)/test_main.o: $(SRC)/test_main.cpp $(SRC)/test_main.h $(SRC)/serialize_test.h $(SRC)/image_util_test.h
 	$(CC) -c $(CFLAGS) $(DFLAGS) $(LDFLAGS) $(SRC)/test_main.cpp -o $@
 
 $(BUILD)/python_binding.o: $(SRC)/python_binding.cpp

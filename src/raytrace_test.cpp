@@ -45,37 +45,6 @@ struct print_div_struct
 template <uint64_t divisor>
 static const print_div_struct<divisor> print_div;
 
-void interpolation_test()
-{
-    std::vector<size_t> bounds({5,5,5});
-    std::vector<iorlog_t> values(std::accumulate(bounds.begin(), bounds.end(), size_t(1), std::multiplies<size_t>()));
-    std::vector<pos_t> pos({
-        0x10000, 0x10000, 0x10000,
-        0x18000, 0x10000, 0x10000,
-        0x10000, 0x18000, 0x10000,
-        0x10000, 0x10000, 0x18000,
-        0x18000, 0x18000, 0x18000,
-        0x20000, 0x10000, 0x10000,
-        0x10000, 0x20000, 0x10000,
-        0x10000, 0x10000, 0x20000,
-        0x20000, 0x20000, 0x20000});
-    
-    for (size_t div = 1; div < 125; div *= 5)
-    {
-        for (size_t i = 0; i < values.size(); ++i)
-        {
-            values[i] = 100 * ((i / div) % 5);
-        }
-        interpolator<iorlog_t> interp(values, bounds);
-        std::vector<iorlog_t> interpolation;
-        for (size_t i = 0; i < pos.size(); i += 3)
-        {
-            interpolation.push_back(interp(pos.begin() + i));
-        }
-        print_elements(std::cout << "interpolation: ", interpolation.begin(), interpolation.end(), ' ') << std::endl;
-    }
-}
-
 template<typename IOR_TYPE, typename IORLOG_TYPE, typename DIR_TYPE, typename DIFF_TYPE>
 void scaling_test()
 {
@@ -188,11 +157,6 @@ int main(int argc, char* argv[])
         {
             scaling_test<ior_t, iorlog_t, dir_t, diff_t>();
             scaling_test<float, float, float, float>();
-            return 0;
-        }
-        else if (std::string("#i") == argv[1])
-        {
-            interpolation_test();
             return 0;
         }
         
