@@ -31,6 +31,45 @@ SOFTWARE.
 #include "io_util.h"
 #include "serialize.h"
 
+template <typename IOR_TYPE>
+struct ior_typeinfo_struct{};
+
+template<>
+struct ior_typeinfo_struct<ior_t>
+{
+    static const ior_t unit_value = 0x10000;
+};
+
+template<>
+struct ior_typeinfo_struct<float>
+{
+    static constexpr float unit_value = static_cast<float>(1);
+};
+
+template <typename IOR_TYPE>
+static const ior_typeinfo_struct<IOR_TYPE> ior_typeinfo;
+
+template <typename DIR_TYPE>
+struct dir_typeinfo_struct{};
+
+template<>
+struct dir_typeinfo_struct<dir_t>
+{
+    static const dir_t unit_value = 0x100;
+    
+    static constexpr float tolerance = static_cast<float>(1) / 0x100;
+};
+
+template<>
+struct dir_typeinfo_struct<float>
+{
+    static constexpr float unit_value = static_cast<float>(1);
+    
+    static constexpr float tolerance = 0;
+};
+
+template <typename IOR_TYPE>
+static const dir_typeinfo_struct<IOR_TYPE> dir_typeinfo;
 
 template <typename T>
 T inline divRoundClosest(const T n, const T d)

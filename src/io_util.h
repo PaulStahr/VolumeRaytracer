@@ -202,6 +202,21 @@ std::ostream & print_matrix(std::ostream & out, size_t width, size_t height, Inp
     return out;
 }
 
+template <uint64_t divisor>
+struct print_div_struct
+{
+    print_div_struct(){}
+    
+    template <typename T>
+    std::ostream & operator ()(std::ostream & out, T elem) const
+    {
+        return out << static_cast<double>(elem) / divisor;
+    }
+};
+
+template <uint64_t divisor>
+static const print_div_struct<divisor> print_div;
+
 namespace IO_UTIL
 {
 template <typename T>
