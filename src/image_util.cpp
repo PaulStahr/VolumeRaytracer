@@ -529,7 +529,7 @@ RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(
             continue;
         }
         try{
-            double fior = static_cast<double>(_ior[i])/0x10000;
+            double fior = static_cast<double>(_ior[i])/ior_typeinfo<ior_t>.unit_value;
             double tmp = log(fior)* 0x420000;
              if (tmp > static_cast<double>(std::numeric_limits<iorlog_t>::max()))
             {
@@ -686,7 +686,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
                     if (UTIL::any_of(start_position.begin() + i, start_position.begin() + i + dim, _bound_vec.begin(), [](size_t lhs, size_t rhs){return lhs < 0x10000 || lhs + 1 >= rhs * 0x10000;}))
                     {
                         std::stringstream ss;
-                        print_elements(print_elements(ss << "ray " << (i / dim) << ':', start_position.begin() + i, start_position.begin() + i + dim, ' ', [](std::ostream & out, size_t elem)->std::ostream&{return out << (elem / 0x10000);}) << " is not in 0 to ", _bound_vec.begin(),_bound_vec.end(), ' ');
+                        print_elements(print_elements(ss << "ray " << (i / dim) << ':', start_position.begin() + i, start_position.begin() + i + dim, ' ', print_div<0x10000>) << " is not in 0 to ", _bound_vec.begin(),_bound_vec.end(), ' ');
                         throw std::runtime_error(ss.str());
                     }
                     std::transform(start_position.begin() + i, start_position.begin() + i + dim, start_position.begin() + i, UTIL::minus<pos_t>(0x8000));
@@ -699,7 +699,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
                         }
                         else
                         {
-                            int64_t tmp = divRoundClosest(static_cast<int64_t>(*iter)  * static_cast<int64_t>(interpolated), static_cast<int64_t>(0x10000));
+                            int64_t tmp = divRoundClosest(static_cast<int64_t>(*iter)  * static_cast<int64_t>(interpolated), static_cast<int64_t>(ior_typeinfo<ior_t>.unit_value));
                             if (tmp > std::numeric_limits<dir_t>::max() || tmp < std::numeric_limits<dir_t>::lowest())
                             {
                                 throw std::runtime_error("Normalize length failed: " + std::to_string(std::numeric_limits<dir_t>::lowest()) + "<=" + std::to_string(tmp) + "<="+ std::to_string(std::numeric_limits<dir_t>::max()));
@@ -728,7 +728,7 @@ void RaytraceScene<IorType, IorLogType, DiffType>::trace_rays(
             if (UTIL::any_of(start_position.begin() + i, start_position.begin() + i + dim, _bound_vec.begin(), [](size_t lhs, size_t rhs){return lhs < 0x10000 || lhs + 1 >= rhs * 0x10000;}))
             {
                 std::stringstream ss;
-                print_elements(print_elements(ss << "ray " << (i / dim) << ':', start_position.begin() + i, start_position.begin() + i + dim, ' ', [](std::ostream & out, size_t elem)->std::ostream&{return out << (elem / 0x10000);}) << " is not in 0 to ", _bound_vec.begin(),_bound_vec.end(), ' ');
+                print_elements(print_elements(ss << "ray " << (i / dim) << ':', start_position.begin() + i, start_position.begin() + i + dim, ' ', print_div<0x10000>) << " is not in 0 to ", _bound_vec.begin(),_bound_vec.end(), ' ');
                 throw std::runtime_error(ss.str());
             }
         }

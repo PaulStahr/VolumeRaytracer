@@ -224,7 +224,7 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     cuda_tuple<T, dimtuple> *diff_interleaved,
     cuda_tuple<uint16_t,3> bounds,
     cuda_tuple<pos_t,3> pos,
-    type_uint8_t<dimtuple> td)
+    type_uint8_t<dimtuple> /*td*/)
 {
                         
     diff_interleaved += get_index(bounds, pos);
@@ -258,7 +258,7 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     cuda_tuple<T, dimtuple> *diff_interleaved,
     cuda_tuple<uint16_t,2> bounds,
     cuda_tuple<pos_t,2> pos,
-    type_uint8_t<dimtuple> td)
+    type_uint8_t<dimtuple> /*td*/)
 {
     diff_interleaved += get_index(bounds, pos);
     cuda_tuple<float,dimtuple> values[4];
@@ -394,7 +394,7 @@ public:
     inline __host__ __device__  DummyObject(){}
     
     template <typename T>
-    inline __host__ __device__  DummyObject(T t){}
+    inline __host__ __device__  DummyObject(T /*t*/){}
     
     template <typename T>
     inline __host__ __device__  T& operator=(T&& other) noexcept{return other;}
@@ -403,31 +403,23 @@ public:
     inline __host__ __device__  operator T() const{return T();}
     
     template <typename T>
-    inline __host__ __device__  DummyObject operator-=(T value){return *this;}
+    inline __host__ __device__  DummyObject operator-=(T /*value*/){return *this;}
     
     template <typename T>
-    inline __host__ __device__  DummyObject operator<(T value){return false;}
+    inline __host__ __device__  DummyObject operator<(T /*value*/){return false;}
     
     
 };
 
 template <typename T>
-inline __host__ __device__  DummyObject operator -(T a, DummyObject b){return DummyObject();}
-
-//template<class T>
-//void operator=(T& value, const DummyObject& v)
-//{}
+inline __host__ __device__  DummyObject operator -(T /*a*/, DummyObject /*b*/){return DummyObject();}
 
 class DummyArray{
     public:
-    inline __host__ __device__  DummyObject const operator [](size_t index) const{return DummyObject();}
-
-    inline __host__ __device__  DummyObject operator [](size_t index) {return DummyObject();}
-    
-    inline __host__ __device__  void operator +=(size_t index) {}
-
-    inline __host__ __device__  DummyArray operator +(size_t index) {return DummyArray();}
-
+    inline __host__ __device__  DummyObject const   operator [](size_t /*index*/) const{return DummyObject();}
+    inline __host__ __device__  DummyObject         operator [](size_t /*index*/) {return DummyObject();}
+    inline __host__ __device__  void                operator +=(size_t /*index*/) {}
+    inline __host__ __device__  DummyArray          operator + (size_t /*index*/) {return DummyArray();}
     inline __host__ __device__  operator bool() const{return false;}
 };
 
@@ -897,7 +889,7 @@ TraceRaysCu<DiffType>::TraceRaysCu(
     //_tex3D = new texture<float, 3, cudaReadModeElementType>[inited];
 #ifndef NCUDA
     _tex = new cudaTextureObject_t[inited];
-    for (size_t i = 0; i < inited; ++i)
+    for (int i = 0; i < inited; ++i)
     {
         HANDLE_ERROR(cudaSetDevice(i));
         
@@ -1006,7 +998,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     std::vector<brightness_t> & remaining_light,
     std::vector<pos_t> &        path,
     std::vector<float> const &  invscale_vec,
-    brightness_t                minimum_brightness,
+    brightness_t                /*minimum_brightness*/,
     uint32_t                    iterations,
     bool                        trace_paths,
     Options const &             opt)
@@ -1020,7 +1012,9 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     std::vector<raydata_t<dim, DirType> > ray_data;
     fill_struct<dim>(start_position, start_direction, iterations, ray_data);
     size_t maximum_rays_per_kernel = 0x8000;
+#ifndef NCUDA
     size_t threads_per_block = 0x80;
+#endif
     //size_t maximum_rays_per_kernel = 64;
     //size_t threads_per_block = 32;
     size_t cuda_device_count = inited;
@@ -1045,18 +1039,18 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     assert(diff_interleaved.size() == prod(output_sizes));
     size_t num_parallel = cuda_device_count + (cpu_device_count > 0);
     if (num_parallel == std::numeric_limits<size_t>::max()){throw std::runtime_error("foobar");}
-    bool useTexture = true;
     #pragma omp parallel for schedule(dynamic) num_threads(num_parallel) if (num_parallel > 1)
     for (size_t i = 0; i < num_rays; i += maximum_rays_per_kernel)
     {
-        size_t num_kernel_rays = std::min(maximum_rays_per_kernel, num_rays - i);
-        size_t block_count = (num_kernel_rays + threads_per_block - 1)/threads_per_block;
         if (opt._loglevel > 0)
         {
             std::cout << "iteration " << (i / maximum_rays_per_kernel) << " of " << (num_rays + maximum_rays_per_kernel - 1) / maximum_rays_per_kernel << std::endl;
         }
-        size_t thread_num = omp_get_thread_num();
+        size_t num_kernel_rays = std::min(maximum_rays_per_kernel, num_rays - i);
 #ifndef NCUDA
+        bool useTexture = true;
+        size_t thread_num = omp_get_thread_num();
+        size_t block_count = (num_kernel_rays + threads_per_block - 1)/threads_per_block;
         if (thread_num < cuda_device_count)
         {
             if (raydata_cuda[thread_num] == nullptr)
@@ -1084,7 +1078,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                         raydata_cuda[thread_num],
                         path_cuda[thread_num],
                         iterations,
-                        minimum_brightness,
+                        DummyObject(), //minimum_brightness,
                         num_kernel_rays);
                 }
                 else
@@ -1113,7 +1107,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                         raydata_cuda[thread_num],
                         path_cuda[thread_num],
                         iterations,
-                        minimum_brightness,
+                        DummyObject(), //minimum_brightness,
                         num_kernel_rays);
                 }
                 else
@@ -1203,7 +1197,7 @@ template <typename DiffType>
 TraceRaysCu<DiffType>::~TraceRaysCu()
 {
 #ifndef NCUDA
-    for (size_t i = 0; i < inited; ++i)
+    for (int i = 0; i < inited; ++i)
     {
         HANDLE_ERROR(cudaSetDevice(i));
         HANDLE_ERROR(cudaFree(_diff_interleaved_cuda[i]));

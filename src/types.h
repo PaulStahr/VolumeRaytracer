@@ -10,6 +10,66 @@ typedef uint32_t ior_t;
 typedef uint32_t brightness_t;
 typedef uint32_t translucency_t;
 
+template <typename IOR_TYPE>
+struct ior_typeinfo_struct{};
+
+template<>
+struct ior_typeinfo_struct<ior_t>
+{
+    static const ior_t unit_value = 0x10000;
+};
+
+template<>
+struct ior_typeinfo_struct<float>
+{
+    static constexpr float unit_value = static_cast<float>(1);
+};
+
+template <typename DIR_TYPE>
+struct dir_typeinfo_struct{};
+
+template<>
+struct dir_typeinfo_struct<dir_t>
+{
+    static const dir_t unit_value = 0x100;
+
+    static constexpr float tolerance = static_cast<float>(1) / 0x100;
+
+    static double constexpr to_double (dir_t dir){return static_cast<double>(dir) / static_cast<double>(unit_value);}
+    static double constexpr to_float  (dir_t dir){return static_cast<float>(dir) / static_cast<float>(unit_value);}
+};
+
+template<>
+struct dir_typeinfo_struct<float>
+{
+    static constexpr float unit_value = static_cast<float>(1);
+
+    static constexpr float tolerance = 0;
+
+    static double constexpr to_double(dir_t dir){return static_cast<double>(dir);}
+    static double constexpr to_float (dir_t dir){return dir;}
+};
+
+template <typename POS_TYPE>
+struct pos_typeinfo_struct{};
+
+template<>
+struct pos_typeinfo_struct<float>
+{
+    static constexpr float unit_value = static_cast<float>(1);
+
+    static constexpr float tolerance = 0;
+
+    static double constexpr to_double(pos_t pos){return static_cast<double>(pos);}
+    static double constexpr to_float (pos_t pos){return pos;}
+};
+
+#ifdef NCUDA
+template <typename IOR_TYPE> static const ior_typeinfo_struct<IOR_TYPE> ior_typeinfo;
+template <typename DIR_TYPE> static const dir_typeinfo_struct<DIR_TYPE> dir_typeinfo;
+template <typename POS_TYPE> static const pos_typeinfo_struct<POS_TYPE> pos_typeinfo;
+#endif
+
 struct Options
 {
     int _loglevel;

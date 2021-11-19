@@ -40,8 +40,8 @@ inline __host__ __device__  void add(float4 &a, float4 b)
     #ifdef __CUDA_ARCH__
     a += b;
     #else
-    //*reinterpret_cast<__m128*>(&a) = _mm_add_ps(*reinterpret_cast<__m128*>(&a),*reinterpret_cast<__m128*>(&b));
-    //a = *reinterpret_cast<float4*>(&erg);
+    *reinterpret_cast<__m128*>(&a) = _mm_add_ps(*reinterpret_cast<__m128*>(&a),*reinterpret_cast<__m128*>(&b));
+    a = *reinterpret_cast<float4*>(&erg);
     a+=b;
     #endif
 }*/

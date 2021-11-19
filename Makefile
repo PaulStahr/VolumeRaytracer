@@ -28,7 +28,8 @@ endif
 # -maxrregcount 36
 
 PT_BIN:= $(shell python3-config '--extension-suffix')
-CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++14 -lstdc++fs -mavx2 -fPIC
+CCFLAGS:=-Wall -Wextra -g -O2 -fopenmp -std=c++11 -mavx2 -fPIC -Werror
+CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++17 -mavx2 -fPIC -Werror
 LFLAGS:= -lstdc++fs -lpng -ljpeg -fopenmp
 LCFLAGS:= -lcuda -lcudart
 CFLAGS += -DNDEBUG
@@ -51,12 +52,12 @@ endef
 $(foreach f,$(CFILES),$(eval $(call built_object)))
 $(foreach f,raytrace_test.cpp ,$(eval $(call built_object)))
 
-$(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h
+$(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
 	ln -sf cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.cpp
-	$(CC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -c $(SRC)/cuda_volume_raytracer.cpp -o $@ -fPIC -g -std=c++11 -fopenmp -msse -msse2 -DNDEBUG -mavx2 -DNCUDA
+	$(CC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -c $(SRC)/cuda_volume_raytracer.cpp -o $@ $(CFLAGS) -msse -msse2 -DNDEBUG -DNCUDA
 
-$(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h
-	nvcc -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v -Xcompiler -fPIC -g -std=c++11 -Xcompiler -fopenmp -Xcompiler -msse -Xcompiler -msse2 -DNDEBUG -Xcompiler -mavx2
+$(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
+	nvcc -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v $(foreach f,$(CCFLAGS), -Xcompiler $f) -DNDEBUG
 
 $(BUILD)/test_main.o: $(SRC)/test_main.cpp $(SRC)/test_main.h $(SRC)/serialize_test.h $(SRC)/image_util_test.h $(SRC)/cuda_volume_raytracer_test.h
 	$(CC) -c $(CFLAGS) $(DFLAGS) $(LDFLAGS) $(SRC)/test_main.cpp -o $@
@@ -77,7 +78,7 @@ raytracer_java.so: $(OFILES) $(BUILD)/raytracer.o $(BUILD)/java_binding.o
 	$(CC) -lc $(OFILES) $(BUILD)/raytracer.o $(BUILD)/java_binding.o -shared -o $@ $(LFLAGS)
 
 raytracer_java_cuda.so: $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/java_binding.o
-	$(CC) -lc $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/java_binding.o $(CLIBS) -shared -o raytrace_java_cuda.so $(LFLAGS)
+	$(CC) -lc $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/java_binding.o $(CLIBS) -shared -o $@ $(LFLAGS)
 
 raytracer_test: $(OFILES) $(BUILD)/raytracer.o $(BUILD)/raytrace_test.o
 	$(CC) $^ -o $@ $(LFLAGS)
@@ -100,10 +101,7 @@ test_cuda: raytracer_unit_test_cuda
 scaling_test: raytracer_test
 	./raytracer_test "#s"
 
-unit-test: qsopt_bin_test
-	./qsopt_bin_test
-
-all: raytracer$(PT_BIN) raytracer_cuda$(PT_BIN) raytracer_unit_test raytracer_unit_test_cuda raytracer_test raytracer_test_cuda raytracer_java.so raytracer_java_cuda.so
+all: raytracer$(PT_BIN) raytracer_cuda$(PT_BIN) raytracer_unit_test raytracer_unit_test_cuda raytracer_test raytracer_test_cuda raytracer_java.so raytracer_java_cuda.so test test_cuda
 
 install: raytracer_java.so raytracer_java_cuda.so
 	cp raytracer_java.so /usr/lib/raytracer_java.so

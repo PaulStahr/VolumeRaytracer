@@ -33,7 +33,7 @@ void run_scaling_test()
     std::vector<uint32_t> remaining_light;
     std::vector<pos_t> path;    
     print_elements(std::cout << " beginposition ", inst._start_position.begin(), inst._start_position.end(), ' ', print_div<0x10000>) << std::endl;
-    print_elements(std::cout << " begindirection ", inst._start_direction.begin(), inst._start_direction.end(), ' ', print_div<0x100>) << std::endl;
+    print_elements(std::cout << " begindirection ", inst._start_direction.begin(), inst._start_direction.end(), ' ', print_convert(dir_typeinfo<DIR_TYPE>.to_double)) << std::endl;
     trace_rays<IOR_TYPE, IORLOG_TYPE, DIFF_TYPE, DIR_TYPE>(
         inst,
         end_position,
@@ -49,7 +49,7 @@ void run_scaling_test()
     BOOST_TEST(static_cast<float>(end_iteration[0]) == 46718, boost::test_tools::tolerance(static_cast<float>(100))); //TODO give formular for number of iterations
     BOOST_TEST(static_cast<float>(end_iteration[1]) == 46718, boost::test_tools::tolerance(static_cast<float>(100))); //TODO give formular for number of iterations
     print_elements(std::cout << " endposition ", end_position.begin(), end_position.end(), ' ', print_div<0x10000>) << std::endl;
-    print_elements(std::cout << " enddirection ", end_direction.begin(), end_direction.end(), ' ', print_div<std::is_same<DIR_TYPE, dir_t>() ? 0x100 : 1>) << std::endl;
+    print_elements(std::cout << " enddirection ", end_direction.begin(), end_direction.end(), ' ', print_convert(dir_typeinfo<DIR_TYPE>.to_double)) << std::endl;
     print_elements(std::cout << " enditeration ", end_iteration.begin(), end_iteration.end(), ' ') << std::endl;
     for (size_t i = 0; i < 2; ++i)
     {
