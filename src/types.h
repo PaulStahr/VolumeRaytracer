@@ -64,7 +64,7 @@ struct pos_typeinfo_struct<float>
     static double constexpr to_float (pos_t pos){return pos;}
 };
 
-#ifdef NCUDA
+#ifndef __CUDACC__
 template <typename IOR_TYPE> static const ior_typeinfo_struct<IOR_TYPE> ior_typeinfo;
 template <typename DIR_TYPE> static const dir_typeinfo_struct<DIR_TYPE> dir_typeinfo;
 template <typename POS_TYPE> static const pos_typeinfo_struct<POS_TYPE> pos_typeinfo;
