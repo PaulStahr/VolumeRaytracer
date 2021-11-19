@@ -47,4 +47,4 @@ jobs:
     - name:    
       run: sudo apt-get update && sudo apt-get install libpng-dev valgrind -y && sudo /sbin/ldconfig -v
     - name: Build with Make
-      run: mkdir -p build; make -j test
+      run: mkdir -p build; make -j 4 test
