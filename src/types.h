@@ -17,12 +17,22 @@ template<>
 struct ior_typeinfo_struct<ior_t>
 {
     static const ior_t unit_value = 0x10000;
+
+    static constexpr float tolerance = static_cast<float>(1) / 0x10000;
+
+    static double constexpr to_double (ior_t ior){return static_cast<double>(ior) / static_cast<double>(unit_value);}
+    static double constexpr to_float  (ior_t ior){return static_cast<float>(ior) / static_cast<float>(unit_value);}
 };
 
 template<>
 struct ior_typeinfo_struct<float>
 {
     static constexpr float unit_value = static_cast<float>(1);
+
+    static constexpr float tolerance = 0;
+
+    static double constexpr to_double (float ior){return static_cast<double>(ior) / static_cast<double>(unit_value);}
+    static double constexpr to_float  (float ior){return static_cast<float>(ior) / static_cast<float>(unit_value);}
 };
 
 template <typename DIR_TYPE>
@@ -46,8 +56,8 @@ struct dir_typeinfo_struct<float>
 
     static constexpr float tolerance = 0;
 
-    static double constexpr to_double(dir_t dir){return static_cast<double>(dir);}
-    static double constexpr to_float (dir_t dir){return dir;}
+    static double constexpr to_double(float dir){return static_cast<double>(dir);}
+    static double constexpr to_float (float dir){return dir;}
 };
 
 template <typename POS_TYPE>

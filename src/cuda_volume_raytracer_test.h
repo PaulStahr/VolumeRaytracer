@@ -45,7 +45,9 @@ void run_scaling_test()
     std::cout << "scaling " << static_cast<double>(end_direction[0]) / inst._start_direction[0] << ' ' << static_cast<double>(end_direction[3]) / inst._start_direction[3] << ' ' << (static_cast<double>(end_direction[0]) / (inst._start_direction[0] * 2) + inst._start_direction[3] / static_cast<double>(end_direction[3])) * 0.5 << std::endl;
     
     interpolator<IOR_TYPE> interp(inst._ior, inst._bound_vec);
-    BOOST_TEST(static_cast<double>(end_direction[0]) / inst._start_direction[0] == interp(end_position.begin()) / interp(inst._start_position.begin()),boost::test_tools::tolerance(0.00001 + dir_typeinfo<DIR_TYPE>.tolerance));
+    BOOST_TEST(static_cast<double>(end_direction[0]) / inst._start_direction[0] == ior_typeinfo<IOR_TYPE>.to_double(interp(end_position.begin())),    boost::test_tools::tolerance(0.00001 + dir_typeinfo<DIR_TYPE>.tolerance));
+    BOOST_TEST(static_cast<double>(end_direction[3]) / inst._start_direction[3] == ior_typeinfo<IOR_TYPE>.to_double(interp(end_position.begin() + 3)),boost::test_tools::tolerance(0.00001 + dir_typeinfo<DIR_TYPE>.tolerance));
+
     BOOST_TEST(static_cast<float>(end_iteration[0]) == 46718, boost::test_tools::tolerance(static_cast<float>(100))); //TODO give formular for number of iterations
     BOOST_TEST(static_cast<float>(end_iteration[1]) == 46718, boost::test_tools::tolerance(static_cast<float>(100))); //TODO give formular for number of iterations
     print_elements(std::cout << " endposition ", end_position.begin(), end_position.end(), ' ', print_div<0x10000>) << std::endl;
