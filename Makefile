@@ -53,8 +53,7 @@ $(foreach f,$(CFILES),$(eval $(call built_object)))
 $(foreach f,raytrace_test.cpp ,$(eval $(call built_object)))
 
 $(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
-	ln -sf cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.cpp
-	$(CC) -D_FORCE_INLINES -O2 -c $(SRC)/cuda_volume_raytracer.cpp -o $@ $(CFLAGS) -msse -msse2 -DNCUDA
+	$(CC) -D_FORCE_INLINES -O2 -c -x c++ $(SRC)/cuda_volume_raytracer.cu -o $@ $(CFLAGS) -msse -msse2 -DNCUDA
 
 $(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
 	nvcc -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v $(foreach f,$(CCFLAGS), -Xcompiler $f) -DNDEBUG
