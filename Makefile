@@ -50,10 +50,12 @@ $(BUILD)/$(subst .cpp,.o,$f): $(SRC)/$f $(SRC)/$(subst .cpp,.h,$f)
 	$(CC) -c $(CFLAGS) $(DFLAGS) $(LDFLAGS) $(SRC)/$f -o $(BUILD)/$(subst .cpp,.o,$f)
 endef
 $(foreach f,$(CFILES),$(eval $(call built_object)))
-$(foreach f,raytrace_test.cpp ,$(eval $(call built_object)))
+$(foreach f,raytrace_test.cpp,$(eval $(call built_object)))
+
+$(BUILD)/test_main.o: $(SRC)/performance_test.h
 
 $(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
-	$(CC) -D_FORCE_INLINES -O2 -c -x c++ $(SRC)/cuda_volume_raytracer.cu -o $@ $(CFLAGS) -msse -msse2 -DNCUDA
+	$(CC) -D_FORCE_INLINES -c -x c++ $(SRC)/cuda_volume_raytracer.cu -o $@ $(CFLAGS) -msse -msse2 -DNCUDA
 
 $(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
 	nvcc -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v $(foreach f,$(CCFLAGS), -Xcompiler $f) -DNDEBUG
@@ -92,10 +94,12 @@ raytracer_unit_test_cuda: $(OFILES) $(BUILD)/raytracer_cuda.o $(BUILD)/test_main
 	$(CC) $^ $(CLIBS) -lboost_unit_test_framework -no-pie $(LFLAGS) $(LCFLAGS) -o $@
 
 test: raytracer_unit_test
-	valgrind ./raytracer_unit_test
+	valgrind ./raytracer_unit_test  --run_test=!performance
+	./raytracer_unit_test --run_test=performance
 
 test_cuda: raytracer_unit_test_cuda
-	valgrind ./raytracer_unit_test_cuda	
+	valgrind ./raytracer_unit_test_cuda --run_test=!performance
+	./raytracer_unit_test_cuda --run_test=performance
 
 scaling_test: raytracer_test
 	./raytracer_test "#s"
