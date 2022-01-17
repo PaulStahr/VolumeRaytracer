@@ -10,6 +10,7 @@ template<typename IOR_TYPE, typename IORLOG_TYPE, typename DIR_TYPE, typename DI
 void run_performance_test()
 {
     Options opt;
+    opt._max_cpu = 1;
     opt._loglevel = -3;
     RayTraceSceneInstance<IOR_TYPE> inst;
     RayTraceRayInstance<DIR_TYPE> ray_instance;
@@ -18,7 +19,7 @@ void run_performance_test()
     inst._ior = std::vector<IOR_TYPE>(num_pixel, 0);
     inst._translucency = std::vector<uint32_t>(num_pixel, 0xFFFFFFFF);
     DIR_TYPE xdir = 0x10 * dir_typeinfo<DIR_TYPE>.unit_value;
-    for (size_t i = 0; i < 100; ++i)
+    for (size_t i = 0; i < 1000; ++i)
     {
         ray_instance._start_position.push_back(0x10000);
         ray_instance._start_position.push_back(0x40000);
@@ -45,8 +46,7 @@ void run_performance_test()
     {
          std::fill(inst._ior.begin() + i * num_layer_pixel, inst._ior.begin() + (i + 1) * num_layer_pixel, ior_typeinfo<IOR_TYPE>.unit_value + ior_typeinfo<IOR_TYPE>.unit_value * static_cast<IOR_TYPE>(i) / (inst._bound_vec[0] - 21));
     }
-    
-    
+
     RaytraceScene<IOR_TYPE, IORLOG_TYPE, DIFF_TYPE> scene(inst, opt);
     
     std::vector<pos_t> end_position;
@@ -54,23 +54,8 @@ void run_performance_test()
     std::vector<uint32_t> end_iteration;
     std::vector<uint32_t> remaining_light;
     std::vector<pos_t> path;
-    for (size_t i = 0; i < 1; ++i)
-    {
-        end_position.clear();
-        end_direction.clear();
-        end_iteration.clear();
-        remaining_light.clear();
-        scene.trace_rays(
-            RayTraceRayInstanceRef<DIR_TYPE>(ray_instance),
-            end_position,
-            end_direction,
-            end_iteration,
-            remaining_light,
-            path,
-            opt);
-    }
     
-    size_t iterations = 10;
+    size_t iterations = 1;
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (size_t i = 0; i < iterations; ++i)
     {
