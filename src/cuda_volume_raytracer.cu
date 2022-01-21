@@ -252,7 +252,45 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     return values[0];
 }
 
+//_mm256_cvtepi32_ps convert int to float
+//_mm256_cvtepi16_epi32
+
+__m128i _mm_loadu_epi16 (void const* mem_addr)
+{
+    return _mm_lddqu_si128(reinterpret_cast<__m128i const *>(mem_addr));
+}
+
 #ifndef __CUDACC__
+#include <immintrin.h>
+template <>
+inline __host__  cuda_tuple<float, 4> interpolatef(
+    cuda_tuple<diff_t, 4> *diff_interleaved,
+    cuda_tuple<uint16_t,3> bounds,
+    cuda_tuple<pos_t,3> pos,
+    type_uint8_t<4> )
+{
+    diff_interleaved += get_index(bounds, pos);
+
+    __m256 values[4];
+    values[0] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)))));
+    values[1] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)))));
+    values[2] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)))));
+    values[3] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)))));
+
+    uint32_t multr = pos.x & 0xFFFF;
+    uint32_t multl = 0x10000 - multr;
+    values[0] = values[0] * (float)multl + values[2] * (float)multr;
+    values[1] = values[1] * (float)multl + values[3] * (float)multr;
+    multr = pos.y & 0xFFFF;
+    multl = 0x10000 - multr;
+    values[0] = values[0] * (float)multl + values[1] * (float)multr;
+    multr = pos.z & 0xFFFF;
+    multl = 0x10000 - multr;
+    cuda_tuple<float, 4> res;
+    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * (float)multl + _mm256_extractf128_ps(values[0], 1) * (float)multr) / 0x1000000000000p0f);
+    return res;
+}
+
 template <>
 inline __host__  cuda_tuple<float, 4> interpolatef(
     cuda_tuple<float, 4> *diff_interleaved,
@@ -273,17 +311,17 @@ inline __host__  cuda_tuple<float, 4> interpolatef(
     values[2] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
     values[3] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
 
-    float multr = pos.x & 0xFFFF;
-    float multl = 0x10000 - multr;
-    values[0] = values[0] * multl + values[2] * multr;
-    values[1] = values[1] * multl + values[3] * multr;
+    uint32_t multr = pos.x & 0xFFFF;
+    uint32_t multl = 0x10000 - multr;
+    values[0] = values[0] * (float)multl + values[2] * (float)multr;
+    values[1] = values[1] * (float)multl + values[3] * (float)multr;
     multr = pos.y & 0xFFFF;
     multl = 0x10000 - multr;
-    values[0] = values[0] * multl + values[1] * multr;
+    values[0] = values[0] * (float)multl + values[1] * (float)multr;
     multr = pos.z & 0xFFFF;
     multl = 0x10000 - multr;
     cuda_tuple<float, 4> res;
-    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * multl + _mm256_extractf128_ps(values[0], 1) * multr) / 0x1000000000000p0f);
+    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * (float)multl + _mm256_extractf128_ps(values[0], 1) * (float)multr) / 0x1000000000000p0f);
     return res;
 }
 #endif
