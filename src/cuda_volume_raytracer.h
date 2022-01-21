@@ -49,13 +49,22 @@ void trace_rays_cu(
 //class TraceRaysCuBase
 //{};
 
+struct DeleteAligned
+{
+    template<class T>
+    void operator()(T * data) const
+    {
+        free(data);
+    }
+};
+
 template <typename DiffType>
 class TraceRaysCu
 {
     private:
     std::vector<translucency_t> const & _translucency_cropped;
     std::vector<uint32_t *> _translucency_cuda;
-    std::vector<DiffType> _diff_interleaved;
+    std::unique_ptr<DiffType, DeleteAligned> _diff_interleaved;
     std::vector<DiffType *>_diff_interleaved_cuda;
     void *_cudaTexture;
     void *_tex;

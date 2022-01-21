@@ -85,7 +85,8 @@ struct Options
     int _loglevel;
     size_t _target;
     bool _write_instance;
-    Options(size_t loglevel_, size_t target_, bool write_instance_) : _loglevel(loglevel_), _target(target_), _write_instance(write_instance_){}
-    Options() : _loglevel(0), _target(3), _write_instance(false){}
+    size_t _max_cpu;
+    Options(size_t loglevel_, size_t target_, bool write_instance_) : _loglevel(loglevel_), _target(target_), _write_instance(write_instance_), _max_cpu(256){}
+    Options() : _loglevel(0), _target(3), _write_instance(false), _max_cpu(256){}
 };
 #endif

@@ -25,7 +25,9 @@ inline T & operator[](uint8_t idx){if(idx == 0) return x; if (idx == 1) return y
 template<typename T>struct cuda_tuple<T,4>{T x,y,z,w;
 inline T & operator[](uint8_t idx){if(idx == 0) return x; if (idx == 1) return y; if (idx == 2) return z; if (idx == 3) return w;*(int*)0=0;return x;}
 };
-
+template<typename T>struct cuda_tuple<T,8>{T x,y,z,w,s,t,u,v;
+inline T & operator[](uint8_t idx){if(idx == 0) return x; if (idx == 1) return y; if (idx == 2) return z; if (idx == 3) return w; if (idx == 4) return s; if (idx == 5) return t; if (idx == 6) return u; if (idx == 7) return v;*(int*)0=0;return x;}
+};
 
 
 

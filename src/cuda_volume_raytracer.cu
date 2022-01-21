@@ -226,7 +226,6 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     cuda_tuple<pos_t,3> pos,
     type_uint8_t<dimtuple> /*td*/)
 {
-                        
     diff_interleaved += get_index(bounds, pos);
     cuda_tuple<float,dimtuple> values[8];
     
@@ -253,6 +252,73 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     return values[0];
 }
 
+#ifndef __CUDACC__
+template <>
+inline __host__  cuda_tuple<float, 4> interpolatef(
+    cuda_tuple<float, 4> *diff_interleaved,
+    cuda_tuple<uint16_t,3> bounds,
+    cuda_tuple<pos_t,3> pos,
+    type_uint8_t<4> )
+{
+    diff_interleaved += get_index(bounds, pos);
+
+    __m256 values[4];
+    /*for (uint8_t i = 0; i < 4; ++i)
+    {
+        values[i] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + ((i >> 1) * static_cast<uint32_t>(bounds.y) + (i & 1)) * static_cast<uint32_t>(bounds.z)));
+    }*/
+
+    values[0] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
+    values[1] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
+    values[2] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
+    values[3] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
+
+    float multr = pos.x & 0xFFFF;
+    float multl = 0x10000 - multr;
+    values[0] = values[0] * multl + values[2] * multr;
+    values[1] = values[1] * multl + values[3] * multr;
+    multr = pos.y & 0xFFFF;
+    multl = 0x10000 - multr;
+    values[0] = values[0] * multl + values[1] * multr;
+    multr = pos.z & 0xFFFF;
+    multl = 0x10000 - multr;
+    cuda_tuple<float, 4> res;
+    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * multl + _mm256_extractf128_ps(values[0], 1) * multr) / 0x1000000000000p0f);
+    return res;
+}
+#endif
+
+#ifndef NCUDA
+template <>
+inline __device__  cuda_tuple<float, 4> interpolatef(
+    cuda_tuple<float, 4> *diff_interleaved,
+    cuda_tuple<uint16_t,3> bounds,
+    cuda_tuple<pos_t,3> pos,
+    type_uint8_t<4> )
+{
+    diff_interleaved += get_index(bounds, pos);
+    cuda_tuple<float,8> values[4];
+
+    values[0] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
+    values[1] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
+    values[2] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
+    values[3] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
+    
+    float multr = pos.x & 0xFFFF;
+    float multl = 0x10000 - multr;
+    values[0] = values[0] * multl + values[2] * multr;
+    values[1] = values[1] * multl + values[3] * multr;
+    multr = pos.y & 0xFFFF;
+    multl = 0x10000 - multr;
+    values[0] = values[0] * multl + values[1] * multr;
+    multr = pos.z & 0xFFFF;
+    multl = 0x10000 - multr;
+    cuda_tuple<float, 4> res;
+    res = (low(values[0]) * multl + high(values[0]) * multr) * (1 / 0x1000000000000p0f);
+    return res;
+}
+#endif
+
 template <uint8_t dimtuple, typename T>
 inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     cuda_tuple<T, dimtuple> *diff_interleaved,
@@ -263,17 +329,15 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     diff_interleaved += get_index(bounds, pos);
     cuda_tuple<float,dimtuple> values[4];
     
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        values[i] = make_struct<float,dimtuple>()(diff_interleaved[((i >> 1) & 1) * static_cast<uint32_t>(bounds.y) + (i & 1)]);
-    }
-
+    values[0] = make_struct<float,dimtuple>()(diff_interleaved[0 * static_cast<uint32_t>(bounds.y) + 0]);
+    values[1] = make_struct<float,dimtuple>()(diff_interleaved[0 * static_cast<uint32_t>(bounds.y) + 1]);
+    values[2] = make_struct<float,dimtuple>()(diff_interleaved[1 * static_cast<uint32_t>(bounds.y) + 0]);
+    values[3] = make_struct<float,dimtuple>()(diff_interleaved[1 * static_cast<uint32_t>(bounds.y) + 1]);
+    
     float multr = pos.x & 0xFFFF;
     float multl = 0x10000 - multr;
-    for (uint8_t i = 0; i < 2; ++i)
-    {
-        add<dimtuple>(values[i],values[i+2],multl,multr);
-    }
+    add<dimtuple>(values[0],values[2],multl,multr);
+    add<dimtuple>(values[0],values[3],multl,multr);
     multr = pos.y & 0xFFFF;
     multl = 0x10000 - multr;
     add<dimtuple>(values[0],values[1],multl,multr);
@@ -621,17 +685,34 @@ __global__ void trace_rays_gput(
 }
 #endif
 
+template<class T>
+std::unique_ptr<T, DeleteAligned> allocate_aligned(size_t alignment, size_t size)
+{
+    return std::unique_ptr<T, DeleteAligned>(static_cast<T*>(aligned_alloc(alignment,size * sizeof(T))), DeleteAligned());
+}
+
 template <typename U, typename T>
-void interleave(U input, size_t num_rows, size_t num_cols, std::vector<T> & out)
+void interleave_vec(U input, size_t num_rows, size_t num_cols, std::vector<T> & out)
 {
     out.clear();
-    std::cout << "reserve " << num_cols << '*' << num_rows << std::endl; 
     out.reserve(num_cols * num_rows);
     for (size_t i = 0; i < num_cols; ++i)
     {
         for (size_t j = 0; j < num_rows; ++j)
         {
             out.emplace_back(input[j][i]);
+        }
+    }
+}
+
+template <typename U, typename T>
+void interleave(U input, size_t num_rows, size_t num_cols, T out)
+{
+    for (size_t i = 0; i < num_cols; ++i)
+    {
+        for (size_t j = 0; j < num_rows; ++j, ++out)
+        {
+            *out = input[j][i];
         }
     }
 }
@@ -881,8 +962,10 @@ TraceRaysCu<DiffType>::TraceRaysCu(
     {
         tmp.push_back(d->cbegin());
     }
-    tmp.push_back(extra_component.cbegin()); 
-    interleave(tmp, tmp.size(), diff[0]->size(), _diff_interleaved);
+    tmp.push_back(extra_component.cbegin());
+    size_t diff_interleaved_size = tmp.size() * diff[0]->size();
+    _diff_interleaved = allocate_aligned<DiffType>(256, diff_interleaved_size);
+    interleave(tmp, tmp.size(), diff[0]->size(), _diff_interleaved.get());
     _diff_interleaved_cuda.resize(inited);
     _translucency_cuda.resize(inited);
     
@@ -893,11 +976,11 @@ TraceRaysCu<DiffType>::TraceRaysCu(
     {
         HANDLE_ERROR(cudaSetDevice(i));
         
-        HANDLE_ERROR(cudaMalloc(&_diff_interleaved_cuda[i],_diff_interleaved.size()      * sizeof(DiffType)));
+        HANDLE_ERROR(cudaMalloc(&_diff_interleaved_cuda[i],diff_interleaved_size      * sizeof(DiffType)));
 
         HANDLE_ERROR(cudaMalloc(&_translucency_cuda[i],    _translucency_cropped.size()  * sizeof(translucency_t)));
 
-        HANDLE_ERROR(cudaMemcpyAsync(_diff_interleaved_cuda[i],_diff_interleaved.data(),     _diff_interleaved.size()      * sizeof(DiffType), cudaMemcpyHostToDevice));
+        HANDLE_ERROR(cudaMemcpyAsync(_diff_interleaved_cuda[i],_diff_interleaved.get(),     diff_interleaved_size      * sizeof(DiffType), cudaMemcpyHostToDevice));
         HANDLE_ERROR(cudaMemcpyAsync(_translucency_cuda[i],    _translucency_cropped.data(), _translucency_cropped.size()  * sizeof(translucency_t), cudaMemcpyHostToDevice));
         
                 
@@ -1025,11 +1108,8 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     cuda_device_count = std::min(cuda_device_count, (num_rays + maximum_rays_per_kernel - 1) / maximum_rays_per_kernel);
     std::vector<cuda_tuple<pos_t,dim> *> path_cuda(cuda_device_count);
     std::vector<raydata_t<dim, DirType>* > raydata_cuda(cuda_device_count);
-    size_t cpu_device_count = omp_get_max_threads() - cuda_device_count;
-    if (cuda_device_count != 0)
-    {
-        cpu_device_count = 0;
-    }
+    size_t cpu_device_count = std::min(omp_get_max_threads() - cuda_device_count, opt._max_cpu);
+    if (cuda_device_count != 0){cpu_device_count = 0;}
     
     cuda_tuple<float,dim> invscale = make_struct<float,dim>()(invscale_vec.data());
     cuda_tuple<uint16_t, dim> output_sizes = make_struct<uint16_t, dim>()(_output_sizes.data());
@@ -1042,7 +1122,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     #pragma omp parallel for schedule(dynamic) num_threads(num_parallel) if (num_parallel > 1)
     for (size_t i = 0; i < num_rays; i += maximum_rays_per_kernel)
     {
-        if (opt._loglevel > 0)
+        if (opt._loglevel < 0)
         {
             std::cout << "iteration " << (i / maximum_rays_per_kernel) << " of " << (num_rays + maximum_rays_per_kernel - 1) / maximum_rays_per_kernel << std::endl;
         }
@@ -1138,7 +1218,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
             if (trace_paths)
             {
                 trace_rays_cpu(
-                    _diff_interleaved.data(),
+                    _diff_interleaved.get(),
                     DummyArray(),//_translucency_cropped.data(),
                     output_sizes,
                     invscale,
@@ -1150,7 +1230,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                     cpu_device_count);
             }else{
                 trace_rays_cpu(
-                    _diff_interleaved.data(),
+                    _diff_interleaved.get(),
                     DummyArray(),//_translucency_cropped.data(),
                     output_sizes,
                     invscale,
@@ -1167,7 +1247,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
         //std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     
-    if (opt._loglevel > 0)
+    if (opt._loglevel < 0)
     {
         std::cout << "cpu: " << count_cpu << " gpu: " << count_gpu << std::endl;
     }
