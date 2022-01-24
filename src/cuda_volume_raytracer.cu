@@ -32,6 +32,7 @@ SOFTWARE.
 #include <omp.h>
 #include <cstdio>
 #include <thread>
+#include <type_traits>
 #include "types.h"
 #include "tuple_math.h"
 #include "tuple_io.h"
@@ -96,118 +97,9 @@ struct raydata_t{
     uint32_t _iterations;
 };
 
-__host__ __device__ cuda_tuple<int32_t, 2> interpolate(
-    cuda_tuple<diff_t, 2> *diff_interleaved,
-    uint32_t bounds1,
-    cuda_tuple<uint32_t,2> pos)
-{
-    cuda_tuple<int32_t,2> values[4];
-    diff_interleaved += (pos.x >> 16) * bounds1 + (pos.y >> 16);
-    
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        values[i] = make_struct<int32_t,2>()(diff_interleaved[((i >> 1) & 1) * bounds1 + (i & 1)]);
-        values[i] *= 0x10000;
-    }
-
-    uint32_t multr = (pos.x & 0xFFFF) * 0x100;
-    uint32_t multl = 0x1000000 - multr;
-
-    for (uint8_t i = 0; i < 2; ++i)
-    {
-        add<2>(values[i],values[i+2],multl,multr);
-    }
-    multr = (pos.y & 0xFFFF) * 0x100;
-    multl = 0x1000000 - multr;
-
-    add<2>(values[0],values[1],multl,multr);
-    return values[0];
- }
- 
-__host__ __device__ cuda_tuple<int32_t,3> interpolate(
-    cuda_tuple<diff_t,4> *diff_interleaved,
-    uint32_t bounds1,
-    uint32_t bounds2,
-    cuda_tuple<uint32_t,3> pos)
-{
-    diff_interleaved += ((pos.x >> 16) * bounds1 + (pos.y >> 16)) * bounds2 + (pos.z >> 16);
-    cuda_tuple<int32_t,3> values[8];
-
-    for (uint8_t i = 0; i < 8; ++i)
-    {
-        values[i] = make_struct<int32_t,3>()(diff_interleaved[(((i >> 2)) * bounds1 + ((i >> 1) & 1)) * bounds2 + (i & 1)]);
-        values[i] *= 0x10000;
-    }
-    
-    uint32_t multr = (pos.x & 0xFFFF) * 0x100;
-    uint32_t multl = 0x1000000 - multr;
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        add<3>(values[i],values[i+4],multl,multr);
-    }
-    multr = (pos.y & 0xFFFF) * 0x100;
-    multl = 0x1000000 - multr;
-    for (uint8_t i = 0; i < 2; ++i)
-    {
-        add<3>(values[i],values[i+2],multl,multr);
-    }
-    multr = (pos.z & 0xFFFF) * 0x100;
-    multl = 0x1000000 - multr;
-    add<3>(values[0],values[1],multl,multr);
-    return values[0];
-}
-
-/*template <uint8_t dim, typename T>
-inline __host__ __device__  cuda_tuple<float, dim> interpolatef(
-    T *diff_interleaved,
-    uint16_t bounds1,
-    uint16_t bounds2,
-    cuda_tuple<pos_t,3> pos)
-{
-    diff_interleaved += ((pos.x >> 16) * static_cast<uint32_t>(bounds1) + (pos.y >> 16)) * static_cast<uint32_t>(bounds2) + (pos.z >> 16);
-    cuda_tuple<float,dim> values[8];
-    
-    for (uint8_t i = 0; i < 8; ++i)
-    {
-        values[i] = make_struct<float,dim>()(diff_interleaved[((i >> 2) * static_cast<uint32_t>(bounds1) + ((i >> 1) & 1)) * static_cast<uint32_t>(bounds2) + (i & 1)]);
-    }
-
-    float multr = pos.x & 0xFFFF;
-    float multl = 0x10000 - (pos.x & 0xFFFF);
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        add<dim>(values[i],values[i+4],multl,multr);
-    }
-    multr = pos.y & 0xFFFF;
-    multl = 0x10000 - (pos.x & 0xFFFF);
-    for (uint8_t i = 0; i < 2; ++i)
-    {
-        add<dim>(values[i],values[i+2],multl,multr);
-    }
-    multr = pos.z & 0xFFFF;
-    multl = 0x10000 - (pos.x & 0xFFFF);
-    add<dim>(values[0],values[1],multl,multr);
-    values[0] /= 0x1000000000000p0f;
-    return values[0];
-}*/
-
-template <uint8_t dim>
-inline __host__ __device__ size_t get_index(cuda_tuple<uint16_t, dim> bounds, cuda_tuple<uint32_t, dim> pos)
-{
-    return 0;
-}
-
-template <>
-inline __host__ __device__ size_t get_index(cuda_tuple<uint16_t, 2> bounds, cuda_tuple<uint32_t, 2> pos)
-{
-    return (pos.x >> 16) * static_cast<uint32_t>(bounds.y) + (pos.y >> 16);
-}
-
-template <>
-inline __host__ __device__ size_t get_index(cuda_tuple<uint16_t, 3> bounds, cuda_tuple<uint32_t, 3> pos)
-{
-    return ((pos.x >> 16) * static_cast<uint32_t>(bounds.y) + (pos.y >> 16)) * static_cast<uint32_t>(bounds.z) + (pos.z >> 16);
-}
+template <uint8_t dim>  inline __host__ __device__ size_t get_index(cuda_tuple<uint16_t, dim> bounds, cuda_tuple<uint32_t, dim> pos) {return 0;}
+template <>             inline __host__ __device__ size_t get_index(cuda_tuple<uint16_t, 2> bounds, cuda_tuple<uint32_t, 2> pos){return  (pos.x >> 16) * static_cast<uint32_t>(bounds.y) + (pos.y >> 16);}
+template <>             inline __host__ __device__ size_t get_index(cuda_tuple<uint16_t, 3> bounds, cuda_tuple<uint32_t, 3> pos){return ((pos.x >> 16) * static_cast<uint32_t>(bounds.y) + (pos.y >> 16)) * static_cast<uint32_t>(bounds.z) + (pos.z >> 16);}
 
 template <uint8_t T>
 struct type_uint8_t{};
@@ -252,12 +144,38 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     return values[0];
 }
 
-//_mm256_cvtepi32_ps convert int to float
-//_mm256_cvtepi16_epi32
-
 __m128i _mm_loadu_epi16 (void const* mem_addr)
 {
     return _mm_lddqu_si128(reinterpret_cast<__m128i const *>(mem_addr));
+}
+
+template <typename DiffType, typename DiffExtractor>
+inline __device__ __host__  cuda_tuple<float, 4> interpolatef(
+    cuda_tuple<DiffType, 4> *diff_interleaved,
+    cuda_tuple<uint16_t,3> bounds,
+    cuda_tuple<pos_t,3> pos,
+    type_uint8_t<4> ,
+    DiffExtractor extract)
+{
+    diff_interleaved += get_index(bounds, pos);
+    typename std::result_of<DiffExtractor(cuda_tuple<DiffType, 4> *)>::type values[4];
+    values[0] = extract(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z));
+    values[1] = extract(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z));
+    values[2] = extract(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z));
+    values[3] = extract(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z));
+
+    uint32_t multr = pos.x & 0xFFFF;
+    uint32_t multl = 0x10000 - multr;
+    values[0] = values[0] * (float)multl + values[2] * (float)multr;
+    values[1] = values[1] * (float)multl + values[3] * (float)multr;
+    multr = pos.y & 0xFFFF;
+    multl = 0x10000 - multr;
+    values[0] = values[0] * (float)multl + values[1] * (float)multr;
+    multr = pos.z & 0xFFFF;
+    multl = 0x10000 - multr;
+    cuda_tuple<float, 4> res;
+    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * (float)multl + _mm256_extractf128_ps(values[0], 1) * (float)multr) / 0x1000000000000p0f);
+    return res;
 }
 
 #ifndef __CUDACC__
@@ -267,28 +185,9 @@ inline __host__  cuda_tuple<float, 4> interpolatef(
     cuda_tuple<diff_t, 4> *diff_interleaved,
     cuda_tuple<uint16_t,3> bounds,
     cuda_tuple<pos_t,3> pos,
-    type_uint8_t<4> )
+    type_uint8_t<4> td)
 {
-    diff_interleaved += get_index(bounds, pos);
-
-    __m256 values[4];
-    values[0] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)))));
-    values[1] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)))));
-    values[2] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)))));
-    values[3] = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)))));
-
-    uint32_t multr = pos.x & 0xFFFF;
-    uint32_t multl = 0x10000 - multr;
-    values[0] = values[0] * (float)multl + values[2] * (float)multr;
-    values[1] = values[1] * (float)multl + values[3] * (float)multr;
-    multr = pos.y & 0xFFFF;
-    multl = 0x10000 - multr;
-    values[0] = values[0] * (float)multl + values[1] * (float)multr;
-    multr = pos.z & 0xFFFF;
-    multl = 0x10000 - multr;
-    cuda_tuple<float, 4> res;
-    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * (float)multl + _mm256_extractf128_ps(values[0], 1) * (float)multr) / 0x1000000000000p0f);
-    return res;
+    return interpolatef(diff_interleaved, bounds, pos, td, [](cuda_tuple<diff_t, 4> *diff_interleaved){return _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm_loadu_epi16 (reinterpret_cast<diff_t *>(diff_interleaved))));});
 }
 
 template <>
@@ -296,33 +195,9 @@ inline __host__  cuda_tuple<float, 4> interpolatef(
     cuda_tuple<float, 4> *diff_interleaved,
     cuda_tuple<uint16_t,3> bounds,
     cuda_tuple<pos_t,3> pos,
-    type_uint8_t<4> )
+    type_uint8_t<4> td)
 {
-    diff_interleaved += get_index(bounds, pos);
-
-    __m256 values[4];
-    /*for (uint8_t i = 0; i < 4; ++i)
-    {
-        values[i] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + ((i >> 1) * static_cast<uint32_t>(bounds.y) + (i & 1)) * static_cast<uint32_t>(bounds.z)));
-    }*/
-
-    values[0] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
-    values[1] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
-    values[2] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
-    values[3] = _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
-
-    uint32_t multr = pos.x & 0xFFFF;
-    uint32_t multl = 0x10000 - multr;
-    values[0] = values[0] * (float)multl + values[2] * (float)multr;
-    values[1] = values[1] * (float)multl + values[3] * (float)multr;
-    multr = pos.y & 0xFFFF;
-    multl = 0x10000 - multr;
-    values[0] = values[0] * (float)multl + values[1] * (float)multr;
-    multr = pos.z & 0xFFFF;
-    multl = 0x10000 - multr;
-    cuda_tuple<float, 4> res;
-    _mm_storeu_ps(reinterpret_cast<float*>(&res),(_mm256_extractf128_ps(values[0], 0) * (float)multl + _mm256_extractf128_ps(values[0], 1) * (float)multr) / 0x1000000000000p0f);
-    return res;
+    return interpolatef(diff_interleaved, bounds, pos, td, [](cuda_tuple<float, 4> *diff_interleaved){return _mm256_loadu_ps (reinterpret_cast<float *>(diff_interleaved));});
 }
 #endif
 
@@ -341,18 +216,18 @@ inline __device__  cuda_tuple<float, 4> interpolatef(
     values[1] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
     values[2] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
     values[3] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
-    
-    float multr = pos.x & 0xFFFF;
-    float multl = 0x10000 - multr;
-    values[0] = values[0] * multl + values[2] * multr;
-    values[1] = values[1] * multl + values[3] * multr;
+
+    uint32_t multr = pos.x & 0xFFFF;
+    uint32_t multl = 0x10000 - multr;
+    values[0] = values[0] * (float)multl + values[2] * (float)multr;
+    values[1] = values[1] * (float)multl + values[3] * (float)multr;
     multr = pos.y & 0xFFFF;
     multl = 0x10000 - multr;
-    values[0] = values[0] * multl + values[1] * multr;
+    values[0] = values[0] * (float)multl + values[1] * (float)multr;
     multr = pos.z & 0xFFFF;
     multl = 0x10000 - multr;
     cuda_tuple<float, 4> res;
-    res = (low(values[0]) * multl + high(values[0]) * multr) * (1 / 0x1000000000000p0f);
+    res = (low(values[0]) * (float)multl + high(values[0]) * (float)multr) * (1 / 0x1000000000000p0f);
     return res;
 }
 #endif
@@ -383,141 +258,21 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     return values[0];
 }
 
-/*template <typename P, typename T, typename B>
-__global__ void trace_ray(
-    cuda_tuple<diff_t,2> *diff_interleaved,
-    T translucency,
-    cuda_tuple<uint32_t,2> bounds,
-    raydata_t<2, dir_t> *raydata,
-    P path,
-    B minimum_brightness,
-    uint32_t n)
+struct DummyObject
 {
-    uint32_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i < n)
-    {
-        raydata += i;
-        cuda_tuple<pos_t,2> pos = raydata->_position;
-        cuda_tuple<int32_t,2> direction = make_struct<int32_t,2>()(raydata->_direction);
-        uint32_t iterations = raydata->_iterations;
-        path += iterations * i;
-        direction *= 0x10000;
-        
-        B brightness = 0xFFFFFFFF;
-        while (iterations -- > 0 && (pos >> 16) < bounds - 1)
-        {
-            if (translucency)
-            {
-                //printf("%u %u\n",pos.x>>16,pos.y>>16);
-                brightness -= min(brightness, 0xFFFFFFFF-translucency[(pos.x >> 16) * bounds.y + (pos.y >> 16)]);
-                if (brightness < minimum_brightness)
-                {
-                    break;
-                }
-            }
-            cuda_tuple<int32_t,2> erg = interpolate(diff_interleaved, bounds.y, pos);
-            erg >>= 12;
-            direction += erg;
-            pos += direction >> 16;
-            path[iterations] = pos;
-        }
-        if (path)
-        {
-            ++iterations;
-            while (iterations --> 0)
-            {
-                path[iterations] = pos;
-            }
-        }
-        direction /= 0x10000;
-        raydata->_position = pos;
-        raydata->_direction = make_struct<int16_t,2>()(direction);
-        raydata->_remaining_brightness = brightness;
-        raydata->_iterations = iterations;
-    }
-}
-
-template <typename P, typename T, typename B>
-__global__ void trace_ray(
-    cuda_tuple<diff_t,4> *diff_interleaved,
-    T translucency,
-    cuda_tuple<uint32_t,3> bounds,
-    raydata_t<3, dir_t> *raydata,
-    P path,
-    B minimum_brightness,
-    uint16_t n)
-{
-    uint16_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i < n)
-    {
-        raydata += i;
-        path += iterations * 3 * i;
-        cuda_tuple<uint32_t,3> pos = raydata->_position;
-        cuda_tuple<int32_t,3> direction = make_struct<int32_t,3>()(raydata->_direction);
-        uint32_t iterations = raydata._iterations;
-        direction *= 0x10000;
-
-        B brightness = 0xFFFFFFFF;
-        while (iterations -- > 0 && (pos >> 16) < bounds - 1)
-        {
-            if (translucency)
-            {
-                brightness -= min(brightness, 0xFFFFFFFF-translucency[((pos.x >> 16) * bounds.y + (pos.y >> 16)) * bounds.z + (pos.z >> 16)]);
-                if (brightness < minimum_brightness)
-                {
-                    break;
-                }
-            }
-            cuda_tuple<int32_t,3> erg = interpolate(diff_interleaved, bounds.y, bounds.z, pos);
-            erg >>= 12;
-            direction += erg;
-            pos += direction >> 16;
-            path[iterations] = pos;
-        }
-        if (path)
-        {
-            ++iterations;
-            while (iterations --> 0)
-            {
-                path[iterations] = pos;
-            }
-        }
-        direction /= 0x10000;
-        raydata->_position = pos;
-        raydata->_direction = make_struct<dir_t,3>()(direction);
-        raydata->_remaining_brightness = brightness;
-        raydata->_iterations = iterations;
-    }
-}*/
-
-class DummyObject
-{
-public:
     inline __host__ __device__  DummyObject(){}
     
-    template <typename T>
-    inline __host__ __device__  DummyObject(T /*t*/){}
-    
-    template <typename T>
-    inline __host__ __device__  T& operator=(T&& other) noexcept{return other;}
-    
-    template <typename T>
-    inline __host__ __device__  operator T() const{return T();}
-    
-    template <typename T>
-    inline __host__ __device__  DummyObject operator-=(T /*value*/){return *this;}
-    
-    template <typename T>
-    inline __host__ __device__  DummyObject operator<(T /*value*/){return false;}
-    
-    
+    template <typename T> inline __host__ __device__  DummyObject(T /*t*/){}
+    template <typename T> inline __host__ __device__  T& operator=(T&& other) noexcept{return other;}
+    template <typename T> inline __host__ __device__  operator T() const{return T();}
+    template <typename T> inline __host__ __device__  DummyObject operator-=(T /*value*/){return *this;}
+    template <typename T> inline __host__ __device__  DummyObject operator<(T /*value*/){return false;}  
 };
 
 template <typename T>
 inline __host__ __device__  DummyObject operator -(T /*a*/, DummyObject /*b*/){return DummyObject();}
 
-class DummyArray{
-    public:
+struct DummyArray{
     inline __host__ __device__  DummyObject const   operator [](size_t /*index*/) const{return DummyObject();}
     inline __host__ __device__  DummyObject         operator [](size_t /*index*/) {return DummyObject();}
     inline __host__ __device__  void                operator +=(size_t /*index*/) {}
@@ -755,53 +510,6 @@ void interleave(U input, size_t num_rows, size_t num_cols, T out)
     }
 }
 
-/*template <typename T>
-void interleave(std::initializer_list<std::vector<T> > const & input, std::vector<T> & out)
-{
-    out.clear();
-    size_t size = (*input.begin()).size();
-    out.reserve(size * input.size());
-    for (size_t i = 0; i < size; ++i)
-    {
-        for (std::vector<T> const & vec : input)
-        {
-            out.push_back(vec[i]);
-        }
-    }
-}
-
-
-
-template <typename T>
-void interleave3(std::vector<std::vector<T> const * > input, std::vector<T> & out)
-{
-    out.clear();
-    size_t size = (input[0])->size();
-    out.reserve(size * input.size());
-    for (size_t i = 0; i < size; ++i)
-    {
-        for (std::vector<T> const * vec : input)
-        {
-            out.emplace((*vec)[i]);
-        }
-    }
-}
-
-template <typename T, uint8_t dim>
-void interleave2(std::array<std::vector<T> const *, dim > input, std::vector<T> & out)
-{
-    out.clear();
-    size_t size = (*input.begin()).size();
-    out.reserve(size * input.size());
-    for (size_t i = 0; i < size; ++i)
-    {
-        for (std::vector<T> const & vec : *input)
-        {
-            out.emplace(vec[i]);
-        }
-    }
-}
-*/
 template <int dim, typename DirType>
 void fill_struct(
     std::vector<pos_t> const & start_position,
