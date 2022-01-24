@@ -75,7 +75,7 @@ struct make_struct<T,2>
 
     template <typename V>inline __host__ __device__  cuda_tuple<T,2> operator()(cuda_tuple<V, 1> a) const{cuda_tuple<T,2> res;res.x = a.x;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,2> operator()(cuda_tuple<V, 2> a) const{cuda_tuple<T,2> res;res.x = a.x;res.y = a.y;return res;}
-    template <typename V>inline __host__ __device__  cuda_tuple<T, 2> operator()(V x, V y) const{cuda_tuple<T, 2> res;res.x = x;res.y = y;return res;}
+    template <typename V>inline __host__ __device__  cuda_tuple<T,2> operator()(V x, V y) const{cuda_tuple<T, 2> res;res.x = x;res.y = y;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,2> operator()(cuda_tuple<V, 3> a) const{cuda_tuple<T,2> res;res.x = a.x;res.y = a.y;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,2> operator()(cuda_tuple<V, 4> a) const{cuda_tuple<T,2> res;res.x = a.x;res.y = a.y;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,2> operator()(V* a) const{cuda_tuple<T,2> res;res.x = a[0];res.y = a[1];return res;}
@@ -87,7 +87,7 @@ struct make_struct<T,3>
     template <typename V, uint8_t m>inline __host__ __device__  cuda_tuple<T,3> operator()(cuda_tuple<V, m> a) const{}
     template <typename V>inline __host__ __device__  cuda_tuple<T,3> operator()(cuda_tuple<V, 1> a) const{cuda_tuple<T,3> res;res.x = a.x;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,3> operator()(cuda_tuple<V, 2> a) const{cuda_tuple<T,3> res;res.x = a.x;res.y = a.y;return res;}
-    template <typename V>inline __host__ __device__  cuda_tuple<T, 3> operator()(V x, V y, V z) const{cuda_tuple<T, 3> res;res.x = x;res.y = y;res.z = z;return res;}
+    template <typename V>inline __host__ __device__  cuda_tuple<T,3> operator()(V x, V y, V z) const{cuda_tuple<T, 3> res;res.x = x;res.y = y;res.z = z;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,3> operator()(cuda_tuple<V, 3> a) const{cuda_tuple<T,3> res;res.x = a.x;res.y = a.y;res.z = a.z;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,3> operator()(cuda_tuple<V, 4> a) const{cuda_tuple<T,3> res;res.x = a.x;res.y = a.y;res.z = a.z;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,3> operator()(V* a) const{cuda_tuple<T,3> res;res.x = a[0];res.y = a[1];res.z = a[2];return res;}
@@ -100,9 +100,12 @@ struct make_struct<T,4>
     template <typename V>inline __host__ __device__  cuda_tuple<T,4> operator()(cuda_tuple<V, 1> a) const{cuda_tuple<T,4> res;res.x = a.x;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,4> operator()(cuda_tuple<V, 2> a) const{cuda_tuple<T,4> res;res.x = a.x;res.y = a.y;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,4> operator()(cuda_tuple<V, 3> a) const{cuda_tuple<T,4> res;res.x = a.x;res.y = a.y;res.z = a.z;return res;}
-    template <typename V>inline __host__ __device__  cuda_tuple<T, 4> operator()(V x, V y, V z, V w) const{cuda_tuple<T, 4> res;res.x = x;res.y = y;res.z = z;res.w = w;return res;}
+    template <typename V>inline __host__ __device__  cuda_tuple<T,4> operator()(V x, V y, V z, V w) const{cuda_tuple<T,4> res;res.x = x;res.y = y;res.z = z;res.w = w;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,4> operator()(cuda_tuple<V, 4> a) const{cuda_tuple<T,4> res;res.x = a.x;res.y = a.y;res.z = a.z;res.w = a.w;return res;}
     template <typename V>inline __host__ __device__  cuda_tuple<T,4> operator()(V* a) const{cuda_tuple<T,4> res;res.x = a[0];res.y = a[1];res.z = a[2];res.w = a[3];return res;}
+#ifdef __AVX2__
+inline __host__ cuda_tuple<T,4> operator()(__m128 a) const{cuda_tuple<T,4> res;_mm_storeu_ps(reinterpret_cast<float*>(&res), a);return res;}
+#endif
 };
 
 template <typename T>
@@ -118,8 +121,8 @@ struct make_struct<T,8>
     template <typename V>inline __host__ __device__  cuda_tuple<T,8> operator()(V* a) const{cuda_tuple<T,8> res;res.x = a[0];res.y = a[1];res.z = a[2];res.w = a[3]; res.s = a[4]; res.t = a[5]; res.u = a[6]; res.v = a[7];return res;}
 };
 
-template <typename T>inline __host__ __device__  cuda_tuple<T,4> low (cuda_tuple<T,8> a){cuda_tuple <T,4> res; res.x = a.x; res.y = a.y; res.z = a.z; res.w = a.w; return res;}
-template <typename T>inline __host__ __device__  cuda_tuple<T,4> high(cuda_tuple<T,8> a){cuda_tuple <T,4> res; res.x = a.s; res.y = a.t; res.z = a.u; res.w = a.v; return res;}
+template <typename T>inline __host__ __device__  cuda_tuple<T,4> extract_low (cuda_tuple<T,8> a){cuda_tuple <T,4> res; res.x = a.x; res.y = a.y; res.z = a.z; res.w = a.w; return res;}
+template <typename T>inline __host__ __device__  cuda_tuple<T,4> extract_high(cuda_tuple<T,8> a){cuda_tuple <T,4> res; res.x = a.s; res.y = a.t; res.z = a.u; res.w = a.v; return res;}
 
 template <typename T, typename V>inline __host__ __device__  void operator/=(cuda_tuple<T, 1> &a, V s){a.x /= s;}
 template <typename T, typename V>inline __host__ __device__  void operator/=(cuda_tuple<T, 2> &a, V s){a.x /= s;a.y /= s;}
