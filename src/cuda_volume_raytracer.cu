@@ -111,38 +111,6 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     cuda_tuple<pos_t,dim> pos,
     type_uint8_t<dimtuple> td);//{return cuda_tuple<float, dimtuple>();}  
 
-template <uint8_t dimtuple, typename T>
-inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
-    cuda_tuple<T, dimtuple> *diff_interleaved,
-    cuda_tuple<uint16_t,3> bounds,
-    cuda_tuple<pos_t,3> pos,
-    type_uint8_t<dimtuple> /*td*/)
-{
-    diff_interleaved += get_index(bounds, pos);
-    cuda_tuple<float,dimtuple> values[8];
-    
-    for (uint8_t i = 0; i < 8; ++i)
-    {
-        values[i] = make_struct<float,dimtuple>()(diff_interleaved[((i >> 2) * static_cast<uint32_t>(bounds.y) + ((i >> 1) & 1)) * static_cast<uint32_t>(bounds.z) + (i & 1)]);
-    }
-    float multr = pos.x & 0xFFFF;
-    float multl = 0x10000 - multr;
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        add<dimtuple>(values[i],values[i+4],multl,multr);
-    }
-    multr = pos.y & 0xFFFF;
-    multl = 0x10000 - multr;
-    for (uint8_t i = 0; i < 2; ++i)
-    {
-        add<dimtuple>(values[i],values[i+2],multl,multr);
-    }
-    multr = pos.z & 0xFFFF;
-    multl = 0x10000 - multr;
-    add<dimtuple>(values[0],values[1],multl,multr);
-    values[0] /= 0x1000000000000p0f;
-    return values[0];
-}
 
 __m128i _mm_loadu_epi16 (void const* mem_addr)
 {
@@ -201,21 +169,20 @@ inline __host__  cuda_tuple<float, 4> interpolatef(
 }
 #endif
 
-#ifndef NCUDA
-template <>
-inline __device__  cuda_tuple<float, 4> interpolatef(
-    cuda_tuple<float, 4> *diff_interleaved,
+template <uint8_t dimtuple, typename T>
+inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
+    cuda_tuple<T, dimtuple> *diff_interleaved,
     cuda_tuple<uint16_t,3> bounds,
     cuda_tuple<pos_t,3> pos,
-    type_uint8_t<4> )
+    type_uint8_t<dimtuple> )
 {
     diff_interleaved += get_index(bounds, pos);
-    cuda_tuple<float,8> values[4];
+    cuda_tuple<float,2 * dimtuple> values[4];
 
-    values[0] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
-    values[1] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
-    values[2] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
-    values[3] = make_struct<float,8>()(reinterpret_cast<float *>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
+    values[0] = make_struct<float, 2 * dimtuple>()(reinterpret_cast<T*>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
+    values[1] = make_struct<float, 2 * dimtuple>()(reinterpret_cast<T*>(diff_interleaved + (0 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
+    values[2] = make_struct<float, 2 * dimtuple>()(reinterpret_cast<T*>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 0) * static_cast<uint32_t>(bounds.z)));
+    values[3] = make_struct<float, 2 * dimtuple>()(reinterpret_cast<T*>(diff_interleaved + (1 * static_cast<uint32_t>(bounds.y) + 1) * static_cast<uint32_t>(bounds.z)));
 
     uint32_t multr = pos.x & 0xFFFF;
     uint32_t multl = 0x10000 - multr;
@@ -226,11 +193,10 @@ inline __device__  cuda_tuple<float, 4> interpolatef(
     values[0] = values[0] * (float)multl + values[1] * (float)multr;
     multr = pos.z & 0xFFFF;
     multl = 0x10000 - multr;
-    cuda_tuple<float, 4> res;
+    cuda_tuple<float, dimtuple> res;
     res = (low(values[0]) * (float)multl + high(values[0]) * (float)multr) * (1 / 0x1000000000000p0f);
     return res;
 }
-#endif
 
 template <uint8_t dimtuple, typename T>
 inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
