@@ -28,8 +28,8 @@ endif
 # -maxrregcount 36
 
 PT_BIN:= $(shell python3-config '--extension-suffix')
-CCFLAGS:=-Wall -Wextra -g -O2 -fopenmp -std=c++11 -mavx2 -fPIC -Werror
-CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++17 -mavx2 -fPIC -Werror
+CCFLAGS:=-Wall -Wextra -g -O2 -fopenmp -std=c++11 -mavx2 -mfma -fPIC -Werror
+CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++17 -mavx2 -mfma -fPIC -Werror
 LFLAGS:= -lstdc++fs -lpng -ljpeg -fopenmp
 LCFLAGS:= -lcuda -lcudart
 CFLAGS += -DNDEBUG
@@ -54,11 +54,14 @@ $(foreach f,raytrace_test.cpp,$(eval $(call built_object)))
 
 $(BUILD)/test_main.o: $(SRC)/performance_test.h
 
-$(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
+$(BUILD)/raytracer.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h $(SRC)/tuple_declaration.h
 	$(CC) -D_FORCE_INLINES -c -x c++ $(SRC)/cuda_volume_raytracer.cu -o $@ $(CFLAGS) -msse -msse2 -DNCUDA
 
-$(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h
+$(BUILD)/raytracer_cuda.o: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h $(SRC)/tuple_declaration.h
 	nvcc -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v $(foreach f,$(CCFLAGS), -Xcompiler $f) -DNDEBUG
+
+$(BUILD)/raytracer_cuda.ptx: $(SRC)/cuda_volume_raytracer.cu $(SRC)/cuda_volume_raytracer.h $(SRC)/tuple_math.h $(SRC)/types.h $(SRC)/tuple_declaration.h
+	nvcc -ptx -ccbin $(CGCC) -I$(cxx_builtin_include_directory) -D_FORCE_INLINES -O2 -v -c $(SRC)/cuda_volume_raytracer.cu -o $@ --dont-use-profile -ldir=$(cuda_library_dir) --ptxas-options=-v $(foreach f,$(CCFLAGS), -Xcompiler $f) -DNDEBUG
 
 $(BUILD)/test_main.o: $(SRC)/test_main.cpp $(SRC)/test_main.h $(SRC)/serialize_test.h $(SRC)/image_util_test.h $(SRC)/cuda_volume_raytracer_test.h
 	$(CC) -c $(CFLAGS) $(DFLAGS) $(LDFLAGS) $(SRC)/test_main.cpp -o $@
