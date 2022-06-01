@@ -531,7 +531,7 @@ RaytraceScene<ior_t, iorlog_t, diff_t>::RaytraceScene(
         try{
             double fior = static_cast<double>(_ior[i])/ior_typeinfo<ior_t>.unit_value;
             double tmp = log(fior)* 0x420000;
-             if (tmp > static_cast<double>(std::numeric_limits<iorlog_t>::max()))
+            if (tmp > static_cast<double>(std::numeric_limits<iorlog_t>::max()))
             {
                 throw std::runtime_error("refraction-index overflow");
             }

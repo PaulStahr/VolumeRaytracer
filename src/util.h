@@ -16,6 +16,8 @@
 #include <vector>
 #include <valarray>
 #include <type_traits>
+#include <new>
+#include <memory>
 #include "iterator_util.h"
 
 #ifdef NDEBUG
@@ -108,7 +110,7 @@ class NullStream : public std::ostream {
 };
 
 namespace UTIL
-{   
+{
     template <class T, T V>
     struct template_constant
     {

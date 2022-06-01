@@ -791,10 +791,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     //size_t maximum_rays_per_kernel = 64;
     //size_t threads_per_block = 32;
     size_t cuda_device_count = inited;
-    if (num_rays <= 0x80)
-    {
-        cuda_device_count = 0;
-    }
+    if (num_rays <= opt._minimum_gpu){cuda_device_count = 0;}
     cuda_device_count = std::min(cuda_device_count, (num_rays + maximum_rays_per_kernel - 1) / maximum_rays_per_kernel);
     std::vector<cuda_tuple<pos_t,dim> *> path_cuda(cuda_device_count);
     std::vector<raydata_t<dim, DirType>* > raydata_cuda(cuda_device_count);
@@ -818,7 +815,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
         }
         size_t num_kernel_rays = std::min(maximum_rays_per_kernel, num_rays - i);
 #ifndef NCUDA
-        bool useTexture = true;
+        bool useTexture = false;
         size_t thread_num = omp_get_thread_num();
         size_t block_count = (num_kernel_rays + threads_per_block - 1)/threads_per_block;
         if (thread_num < cuda_device_count)

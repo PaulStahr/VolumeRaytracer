@@ -326,6 +326,7 @@ JNIEXPORT jint JNICALL Java_data_raytrace_OpticalVolumeObject_get_1option_1value
       switch(key)
       {
           case 0:return opt._loglevel;
+          case 2:return opt._minimum_gpu;
           default: throw std::runtime_error("Illegal Argument " + std::to_string(key));
       }
   }
@@ -342,6 +343,7 @@ JNIEXPORT void JNICALL Java_data_raytrace_OpticalVolumeObject_set_1option_1value
       switch(key)
       {
           case 0: opt._loglevel = value;break;
+          case 2: opt._minimum_gpu = value;break;
           default: throw std::runtime_error("Illegal Argument " + std::to_string(key));
       }
   }

@@ -55,6 +55,7 @@ int main(int argc, char* argv[])
         std::cout << ray_inst._invscale[0] << std::endl;
         Options opt;
         opt._loglevel = -4;
+        opt._minimum_gpu = 0;
         RaytraceScene<ior_t, iorlog_t, diff_t> scene(scene_inst, opt);
         
         std::vector<pos_t> end_position;

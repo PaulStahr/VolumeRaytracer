@@ -83,10 +83,10 @@ template <typename POS_TYPE> static const pos_typeinfo_struct<POS_TYPE> pos_type
 struct Options
 {
     int _loglevel;
-    size_t _target;
+    size_t _minimum_gpu;
     bool _write_instance;
     size_t _max_cpu;
-    Options(size_t loglevel_, size_t target_, bool write_instance_) : _loglevel(loglevel_), _target(target_), _write_instance(write_instance_), _max_cpu(256){}
-    Options() : _loglevel(0), _target(3), _write_instance(false), _max_cpu(256){}
+    Options(size_t loglevel_, size_t minimum_gpu_, bool write_instance_) : _loglevel(loglevel_), _minimum_gpu(minimum_gpu_), _write_instance(write_instance_), _max_cpu(256){}
+    Options() : _loglevel(0), _minimum_gpu(0x80), _write_instance(false), _max_cpu(256){}
 };
 #endif
