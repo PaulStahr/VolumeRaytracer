@@ -220,11 +220,14 @@ static const print_div_struct<divisor> print_div;
 namespace IO_UTIL
 {
 template <typename T>
-struct string_to_struct : std::unary_function<std::string, T>
+struct string_to_struct
 {
-    string_to_struct(){}
-    
-    T operator()(std::string const & str) const;
+    using argument_type = std::string;
+    using result_type = T;
+
+    string_to_struct() {}
+
+    T operator()(std::string const& str) const;
 };
 
 template<typename T>
@@ -242,9 +245,14 @@ T string_to_struct<T>::operator()(const std::string& str) const
 }
 
 template <>
-struct string_to_struct<bool>: std::unary_function<std::string, bool>
+struct string_to_struct<bool>
 {
-    bool operator()(std::string const & str) const;
+    using argument_type = std::string;
+    using result_type = bool;
+
+    string_to_struct() {}
+
+    bool operator()(std::string const& str) const;
 };
 
 template <typename T>

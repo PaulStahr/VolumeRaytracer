@@ -28,8 +28,8 @@ endif
 # -maxrregcount 36
 
 PT_BIN:= $(shell python3-config '--extension-suffix')
-CCFLAGS:=-Wall -Wextra -g -O2 -fopenmp -std=c++11 -mavx2 -mfma -fPIC -Werror
-CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++17 -mavx2 -mfma -fPIC -Werror
+CCFLAGS:=-Wall -Wextra -g -O2 -fopenmp -std=c++11 -march=native -mfma -fPIC -Werror
+CFLAGS:= -Wall -Wextra -pedantic -g -O2 -fopenmp -std=c++17 -march=native -mfma -fPIC -Werror
 LFLAGS:= -lstdc++fs -lpng -ljpeg -fopenmp
 LCFLAGS:= -lcuda -lcudart
 CFLAGS += -DNDEBUG

@@ -14,13 +14,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: boost
-      run: sudo apt-get update && sudo apt-get install -yq libboost1.71-all-dev
+      run: sudo apt-get update && sudo apt-get install -yq libboost1.74-all-dev
     - name: Cache boost
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: cache-boost
       with:
         path: "~/boost"
-        key: libboost1.71-all-dev
+        key: libboost1.74-all-dev
     - name: Install boost
       env:
         CACHE_HIT: ${{steps.cache-boost.outputs.cache-hit}}
@@ -28,9 +28,9 @@ jobs:
         if [[ "$CACHE_HIT" == 'true' ]]; then
           sudo cp --force --recursive ~/boost/* /
         else
-          sudo apt-get update && sudo apt-get install -yq libboost1.71-all-dev
+          sudo apt-get update && sudo apt-get install -yq libboost1.74-all-dev
           mkdir -p ~/boost
-          for dep in libboost1.71-all-dev; do
+          for dep in libboost1.74-all-dev; do
               dpkg -L $dep | while IFS= read -r f; do if test -f $f; then echo $f; fi; done | xargs cp --parents --target-directory ~/boost/
           done
         fi
@@ -45,6 +45,6 @@ jobs:
         # OPTIONAL: Specify a platform version
        # platform_version: 18.04
     - name:    
-      run: sudo apt-get update && sudo apt-get install libpng-dev valgrind -y && sudo /sbin/ldconfig -v
+      run: sudo apt-get update && sudo apt-get install libjpeg-dev libpng-dev valgrind -y && sudo /sbin/ldconfig -v
     - name: Build with Make
       run: mkdir -p build; make -j 4 test

@@ -208,12 +208,16 @@ namespace UTIL
     };
 
     template <typename T, typename F>
-    struct insert_left_operator_struct : std::unary_function<T, T>
+    struct insert_left_operator_struct
     {
         T _comp;
         F _func;
-        insert_left_operator_struct(T const & comp_, F const & func_): _comp(comp_), _func(func_){}
-        typename std::result_of<F(T,T)>::type operator()(T const & arg) const{return _func(_comp, arg);}
+
+        insert_left_operator_struct(T const& comp_, F const& func_)
+            : _comp(comp_), _func(func_) {}
+
+        auto operator()(T const& arg) const
+            -> std::invoke_result_t<F, T, T>{return _func(_comp, arg);}
     };
     
     template <typename T, typename F>

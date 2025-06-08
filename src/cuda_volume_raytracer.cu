@@ -37,6 +37,17 @@ SOFTWARE.
 #include "tuple_math.h"
 #include "tuple_io.h"
 
+#include <type_traits>
+
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
+
+#ifdef NCUDA
+#include <cmath>
+#endif
+
+
 #include "cuda_volume_raytracer.h"
 
 #ifndef NCUDA
@@ -112,7 +123,7 @@ inline __host__ __device__  cuda_tuple<float, dimtuple> interpolatef(
     type_uint8_t<dimtuple> td);//{return cuda_tuple<float, dimtuple>();}  
 
 
-inline __m128i _mm_loadu_epi16 (void const* mem_addr){return _mm_lddqu_si128(reinterpret_cast<__m128i const *>(mem_addr));}
+//inline __m128i _mm_loadu_epi16 (void const* mem_addr){return _mm_lddqu_si128(reinterpret_cast<__m128i const *>(mem_addr));}
 inline __m128 extract_low  (__m256 m){return _mm256_extractf128_ps(m, 0);}
 inline __m128 extract_high (__m256 m){return _mm256_extractf128_ps(m, 1);}
 
@@ -600,7 +611,7 @@ size_t inline sizeofvec(std::vector<T> const & vec)
     {
         HANDLE_ERROR(cudaMemcpyAsync(path.data(),            path_cuda,            path.size()            * sizeof(pos_t),  cudaMemcpyDeviceToHost));
     }
-    HANDLE_ERROR(cudaThreadSynchronize());
+    HANDLE_ERROR(cudaDeviceSynchronize());
 
     HANDLE_ERROR(cudaFree(diff_interleaved_cuda));
     HANDLE_ERROR(cudaFree(raydata_cuda));
@@ -891,7 +902,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
                         num_kernel_rays);
                 }
             }
-            HANDLE_ERROR(cudaThreadSynchronize());
+            HANDLE_ERROR(cudaDeviceSynchronize());
             HANDLE_ERROR(cudaMemcpyAsync(ray_data.data() + i,    raydata_cuda[thread_num],    num_kernel_rays   * sizeof(raydata_t<dim, DirType>), cudaMemcpyDeviceToHost));
             if (trace_paths)
             {
@@ -955,7 +966,7 @@ void TraceRaysCu<DiffType>::trace_rays_cu_impl(
     }
     if (cuda_device_count != 0)
     {
-        HANDLE_ERROR(cudaThreadSynchronize());
+        HANDLE_ERROR(cudaDeviceSynchronize());
     }
 #endif
 }
@@ -972,7 +983,7 @@ TraceRaysCu<DiffType>::~TraceRaysCu()
     }
     if (inited)
     {
-        HANDLE_ERROR(cudaThreadSynchronize());
+        HANDLE_ERROR(cudaDeviceSynchronize());
     }
 #endif
 }
