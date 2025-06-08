@@ -1,5 +1,5 @@
 import pytest
-from volume_raytracer import OpticalVolume
+from volumeraytracer.volume_raytracer import OpticalVolume
 import logging
 import cupy as cp
 import numpy as np

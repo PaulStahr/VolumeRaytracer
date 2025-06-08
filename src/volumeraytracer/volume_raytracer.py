@@ -135,17 +135,20 @@ inline __device__ float dot(float2 a){return a.x * a.x + a.y * a.y;}
 inline __device__ float dot(float3 a){return a.x * a.x + a.y * a.y + a.z * a.z;}
 inline __device__ float dot(float4 a){return a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w;}
 
-inline __device__ float4 tex2DTuple(cudaTextureObject_t texObj, float2 pos){return tex2D<float4>(texObj, pos.x, pos.y);}
-inline __device__ float4 tex3DTuple(cudaTextureObject_t texObj, float3 pos){return tex3D<float4>(texObj, pos.x, pos.y, pos.z);}
+inline __device__ float tex2D1Tuple(cudaTextureObject_t texObj, float2 pos){return tex2D<float>(texObj, pos.x, pos.y);}
+inline __device__ float tex3D1Tuple(cudaTextureObject_t texObj, float3 pos){return tex3D<float>(texObj, pos.x, pos.y, pos.z);}
+inline __device__ float4 tex2D4Tuple(cudaTextureObject_t texObj, float2 pos){return tex2D<float4>(texObj, pos.x, pos.y);}
+inline __device__ float4 tex3D4Tuple(cudaTextureObject_t texObj, float3 pos){return tex3D<float4>(texObj, pos.x, pos.y, pos.z);}
 
 
 extern "C"{
-__global__ void raytracing_kernel(float{dim}* position,
-                                float{dim}* direction,
-                                unsigned int* iterations,
-                                float{dim}* bd,
-                                cudaTextureObject_t gradients,
-                                unsigned int n)
+__global__ void raytracing_kernel(
+    float{dim}* position,
+    float{dim}* direction,
+    unsigned int* iterations,
+    float{dim}* bd,
+    cudaTextureObject_t gradients,
+    unsigned int n)
 {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -157,7 +160,7 @@ __global__ void raytracing_kernel(float{dim}* position,
         float{dim} bound = make_float{dim}(*bd);
         while (iter-- > 0 && pos > 0 && pos < bound)
         {
-            float{dim+1} interpolation = make_float{dim+1}(tex{dim}DTuple(gradients, pos));
+            float{dim+1} interpolation = make_float{dim+1}(tex{dim}D4Tuple(gradients, pos));
             if (lastvar(interpolation) < 0.0f) {
                 break;
             }
@@ -169,9 +172,24 @@ __global__ void raytracing_kernel(float{dim}* position,
         direction[idx] = dir;
     }
 }
+
+__global__ void evaluate_ior_kernel(
+    float{dim}* position,
+    float* result,
+    cudaTextureObject_t ior_texture,
+    unsigned int n)
+{
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx < n)
+    {
+        result[idx] = tex{dim}D1Tuple(ior_texture, position[idx]);
+    }
+}
 }
 '''
 
+ior_evaluation_kernel = [None] * 4
 raytracing_kernel = [None] * 4
 
 
@@ -234,6 +252,20 @@ class OpticalVolume:
         self.ndim = ior.ndim
         self.shape = ior.shape
         self.update()
+
+    def get_ior(self, position):
+        assert position.dtype == cp.float32, "Position must be of type float32"
+        current_kernel = ior_evaluation_kernel[self.ndim]
+        if current_kernel is None:
+            code = source_cupy_texture_lookup.replace('{dim}', str(self.ndim)).replace('{dim+1}', str(self.ndim + 1))
+            current_kernel = cp.RawKernel(code, 'evaluate_ior_kernel')
+            ior_evaluation_kernel[self.ndim] = current_kernel
+        block_size = 256
+        num_blocks = (position.shape[0] + block_size - 1) // block_size
+        result = cp.empty(position.shape[0], dtype=cp.float32)
+        current_kernel((num_blocks,), (block_size,), (position, result, self.ior_texture, position.shape[0]))
+        return result
+
 
     def update(self):
         # calculate gradients in all directions by building 2d or 3d convolution
