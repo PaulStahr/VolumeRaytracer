@@ -2,8 +2,10 @@ import cupy as cp
 import logging
 import numpy as np
 import itertools
+import inspect
+import logging
 
-from visidata.loaders.shp import shptype
+logger = logging.getLogger(__name__)
 
 #inline __device__ __host__ __device__  void trace_ray_function(
 #    cuda_tuple<DiffType,dim + 1>  *diff_interleaved,
@@ -242,7 +244,7 @@ def create_cuda_texture(img, dtype=None):
     raise ex
 
 class OpticalVolume:
-    def __init__(self, ior, transculency, scale):
+    def __init__(self, ior:cp.ndarray|np.ndarray, transculency:cp.ndarray|np.ndarray, scale:cp.ndarray|np.ndarray, xp=cp):
         self.ior = ior
         self.translucency = transculency
         self.gradient = None
@@ -251,6 +253,7 @@ class OpticalVolume:
         self.scale = scale
         self.ndim = ior.ndim
         self.shape = ior.shape
+        self.xp = xp
         self.update()
 
     def get_ior(self, position):
@@ -266,36 +269,45 @@ class OpticalVolume:
         current_kernel((num_blocks,), (block_size,), (position, result, self.ior_texture, position.shape[0]))
         return result
 
-
     def update(self):
         # calculate gradients in all directions by building 2d or 3d convolution
-        grad = cp.gradient(cp.log(self.ior))
+        grad = self.xp.gradient(self.xp.log(OpticalVolume.convert(self.ior, self.xp)))
         gradient = []
         for axis in range(self.ndim):
             grad[axis] *= self.scale[axis]
-            current = cp.zeros(shape=np.asarray(self.ior.shape) + 2, dtype=cp.float32)
-            padded = cp.pad(grad[axis], [(1, 1)] * self.ndim, mode='edge')
+            current = self.xp.zeros(shape=np.asarray(self.ior.shape) + 2, dtype=self.xp.float32)
+            padded = self.xp.pad(grad[axis], [(1, 1)] * self.ndim, mode='edge')
             mask = np.ones(shape=self.ndim, dtype=bool)
             mask[axis] = False
             for shp in itertools.product(*[range(s) for s in standard_stamp[self.ndim].shape]):
                 shift = np.zeros(shape=self.ndim, dtype=int)
                 shift[mask] = np.asarray(shp) - 1
-                current += cp.roll(padded, shift=tuple(shift)) * standard_stamp[self.ndim][*shp]
+                current += self.xp.roll(padded, shift=tuple(shift)) * standard_stamp[self.ndim][*shp]
             gradient.append(current[tuple([slice(1,-1)] * self.ndim)])
-        gradient = cp.stack(gradient, axis=-1)
-        gradient = [gradient, self.translucency[..., cp.newaxis]]
+        gradient = self.xp.stack(gradient, axis=-1)
+        translucency = OpticalVolume.convert(self.translucency, self.xp)
+        gradient = [gradient, translucency[..., self.xp.newaxis]]
         if self.ndim == 2:
-            gradient.append(self.translucency[..., cp.newaxis])
-        self.gradient = cp.concatenate(gradient, axis=-1)
+            gradient.append(translucency[..., self.xp.newaxis])
+        self.gradient = self.xp.concatenate(gradient, axis=-1)
         self.texture = create_cuda_texture(np.swapaxes(self.gradient, 0, -2), dtype=np.float32)
         self.ior_texture = create_cuda_texture(np.swapaxes(self.ior, 0, -1), dtype=np.float32)
 
-    def trace_rays(self, positions:cp.ndarray, directions:cp.ndarray, iterations:cp.ndarray, bounds:cp.ndarray):
+    def trace_rays(self, positions:cp.ndarray|np.ndarray, directions:cp.ndarray|np.ndarray, iterations:cp.ndarray, bounds:cp.ndarray):
+        if isinstance(positions, np.ndarray):
+            positions = cp.asarray(positions, dtype=cp.float32)
+        if isinstance(directions, np.ndarray):
+            directions = cp.asarray(directions, dtype=cp.float32)
+        if isinstance(iterations, np.ndarray):
+            iterations = cp.asarray(iterations, dtype=cp.uint32)
         assert positions.dtype == cp.float32, "Positions must be of type float32"
         assert directions.dtype == cp.float32, "Directions must be of type float32"
         assert iterations.dtype == cp.uint32, "Iterations must be of type uint32"
-        assert bounds.dtype == cp.float32, "Bounds must be of type uint16"
-
+        if not isinstance(bounds, cp.ndarray):
+            bounds = cp.asarray(bounds, dtype=cp.float32)
+        if bounds.dtype != cp.float32:
+            logger.log(logging.WARNING, f"Converting bounds from {bounds.dtype} to float32")
+            bounds = cp.asarray(bounds, dtype=cp.float32)
         current_kernel = raytracing_kernel[self.ndim]
         if current_kernel is None:
             code = source_cupy_texture_lookup.replace('{dim}', str(self.ndim)).replace('{dim+1}', str(self.ndim + 1))
@@ -305,9 +317,23 @@ class OpticalVolume:
         block_size = 256
         num_blocks = (positions.shape[0] + block_size - 1) // block_size
         current_kernel((num_blocks,), (block_size,), (positions, directions, iterations, bounds, self.texture, positions.shape[0]))
+        return positions, directions, iterations
 
 
-
-
-
+    @staticmethod
+    def convert(img, module):
+        if isinstance(img, str):
+            return img
+        if module == None:
+            return img
+        t = type(img)
+        if inspect.getmodule(t) == module:
+            return img
+        if logging.DEBUG >= logging.root.level:
+            finfo = inspect.getouterframes(inspect.currentframe())[1]
+            logger.log(logging.DEBUG,
+                       F'convert {t.__module__} to {module.__name__} by {finfo.filename} line {finfo.lineno}')
+        if t.__module__ == 'cupy':
+            return module.array(img.get(), copy=False)
+        return module.array(img, copy=False)
 
